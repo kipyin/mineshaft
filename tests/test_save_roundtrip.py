@@ -18,6 +18,7 @@ def test_save_roundtrip(tmp_path: Path) -> None:
     assert g2.player.inventory.count("stick") == 3
     assert g2.mode == g1.mode
     assert g2.world_time_ticks == 12345
+    assert g2.spawn_pos.x == g1.spawn_pos.x and g2.spawn_pos.y == g1.spawn_pos.y
 
 
 def test_new_save_uses_mineshaft_keys(tmp_path: Path) -> None:
@@ -26,6 +27,8 @@ def test_new_save_uses_mineshaft_keys(tmp_path: Path) -> None:
     save_game(p, g)
     raw = json.loads(p.read_text())
     assert raw["mode"] in ("overworld", "mineshaft")
+    assert raw["schema_version"] == 2
+    assert "spawn_pos" in raw
     assert "mineshaft_runs" in raw
     assert "active_mineshaft_id" in raw
     assert "cave_to_mineshaft_id" in raw["overworld"]
