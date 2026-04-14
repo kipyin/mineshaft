@@ -32,5 +32,5 @@ def resolve_overworld_melee(
     return max(0, cur_p), max(0, cur_m), cur_m <= 0
 
 
-def dungeon_player_damage(inv: Inventory) -> int:
+def mineshaft_player_damage(inv: Inventory) -> int:
     return melee_damage(inv)

@@ -39,18 +39,3 @@ class Tile:
             TileKind.GRASS,
             TileKind.CAVE_ENTRANCE,
         )
-
-
-def tile_glyph(kind: TileKind) -> str:
-    return {
-        TileKind.GRASS: '"',
-        TileKind.DIRT: ":",
-        TileKind.STONE: "#",
-        TileKind.SAND: "~",
-        TileKind.WATER: "≈",
-        TileKind.TREE: "T",
-        TileKind.COAL_ORE: "◆",
-        TileKind.IRON_ORE: "◇",
-        TileKind.CAVE_ENTRANCE: "Ω",
-        TileKind.BEDROCK: "█",
-    }[kind]

@@ -1,6 +1,6 @@
-"""Procedural generators."""
+from __future__ import annotations
 
-from mineshaft.gen.dungeon_gen import generate_dungeon
+from mineshaft.gen.mineshaft_gen import generate_mineshaft
 from mineshaft.gen.overworld_gen import generate_overworld
 
-__all__ = ["generate_dungeon", "generate_overworld"]
+__all__ = ["generate_mineshaft", "generate_overworld"]

@@ -12,7 +12,7 @@ from mineshaft.domain.items import item_name
 from mineshaft.persistence.save import load_game, save_game
 from mineshaft.sim.crafting import list_craftable
 from mineshaft.sim.engine import Game, MoveDir
-from mineshaft.ui.render import render_dungeon, render_overworld, render_sidebar
+from mineshaft.ui.render import render_mineshaft, render_overworld, render_sidebar
 
 DEFAULT_SAVE = Path("mineshaft_save.json")
 
@@ -40,11 +40,13 @@ class MineshaftApp(App[None]):
         Binding("f", "eat", "Eat"),
         Binding("S", "save", "Save"),
         Binding("L", "load", "Load"),
+        Binding("f3", "toggle_debug", "Debug", show=False),
     ]
 
     def __init__(self, game: Game | None = None, seed: int | None = None) -> None:
         super().__init__()
         self.game = game if game is not None else Game(seed=seed)
+        self._debug_overlay = False
 
     def compose(self) -> ComposeResult:
         yield Header(name="mineshaft")
@@ -79,12 +81,16 @@ class MineshaftApp(App[None]):
         mp = self.query_one("#map", Static)
         side = self.query_one("#sidebar", Static)
         if g.mode == "overworld":
-            mp.update(render_overworld(g.overworld, g.player.pos))
+            mp.update(render_overworld(g.overworld, g.player))
         else:
-            assert g.dungeon is not None
-            mp.update(render_dungeon(g.dungeon))
-        side.update(render_sidebar(g))
+            assert g.mineshaft_run is not None
+            mp.update(render_mineshaft(g.mineshaft_run))
+        side.update(render_sidebar(g, show_debug=self._debug_overlay))
         self._sync_log()
+
+    def action_toggle_debug(self) -> None:
+        self._debug_overlay = not self._debug_overlay
+        self.refresh_all()
 
     def _move(self, d: MoveDir) -> None:
         if self.game.player.hp <= 0:
@@ -93,7 +99,7 @@ class MineshaftApp(App[None]):
             self.game.move_overworld(d)
         else:
             m = {"N": "north", "S": "south", "W": "west", "E": "east"}[d]
-            self.game.dungeon_go(m)
+            self.game.mineshaft_go(m)
         self.refresh_all()
 
     def action_mv_n(self) -> None:

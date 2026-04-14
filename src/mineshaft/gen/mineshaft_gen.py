@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import random
 
-from mineshaft.domain.dungeon import DungeonInstance, DungeonRoom
 from mineshaft.domain.items import ItemId
+from mineshaft.domain.mineshaft_run import MineshaftRoom, MineshaftRun
 
 
-def generate_dungeon(
+def generate_mineshaft(
     rng: random.Random,
-    dungeon_id: str,
+    mineshaft_id: str,
     tier: int,
     overworld_return: tuple[int, int],
     room_count: int = 12,
-) -> DungeonInstance:
+) -> MineshaftRun:
     room_ids = [f"r{i}" for i in range(room_count)]
     entrance = room_ids[0]
     escape = room_ids[-1]
@@ -42,7 +42,7 @@ def generate_dungeon(
         da, db = rng.choice(dirs)
         link(a, da, b, db)
 
-    rooms: dict[str, DungeonRoom] = {}
+    rooms: dict[str, MineshaftRoom] = {}
     for i, rid in enumerate(room_ids):
         depth = i
         mob_kind = None
@@ -73,15 +73,15 @@ def generate_dungeon(
                 ]
             )
 
-        title = f"Chamber {i + 1}"
+        title = f"Collapsed tunnel {i + 1}"
         if is_entrance:
-            title = "Mine entrance"
+            title = "Mineshaft entrance"
         elif exit_world:
             title = "Escape shaft"
         elif mob_kind:
-            title = f"Lair ({mob_kind})"
+            title = f"Infested corridor ({mob_kind})"
 
-        rooms[rid] = DungeonRoom(
+        rooms[rid] = MineshaftRoom(
             id=rid,
             title=title,
             depth=depth,
@@ -96,8 +96,8 @@ def generate_dungeon(
             exit_to_overworld=exit_world,
         )
 
-    return DungeonInstance(
-        dungeon_id=dungeon_id,
+    return MineshaftRun(
+        mineshaft_id=mineshaft_id,
         tier=tier,
         rooms=rooms,
         current_room=entrance,

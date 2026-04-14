@@ -4,20 +4,22 @@ import random
 from typing import Literal
 
 from mineshaft.domain.direction import Direction
-from mineshaft.domain.dungeon import DungeonInstance
 from mineshaft.domain.items import ItemId
+from mineshaft.domain.mineshaft_run import MineshaftRun
 from mineshaft.domain.overworld import Overworld, OverworldMob
 from mineshaft.domain.player import Player
 from mineshaft.domain.pos import Pos
 from mineshaft.domain.tiles import BiomeKind, TileKind
-from mineshaft.gen.dungeon_gen import generate_dungeon
+from mineshaft.gen.mineshaft_gen import generate_mineshaft
 from mineshaft.gen.overworld_gen import generate_overworld
-from mineshaft.sim.combat import dungeon_player_damage, resolve_overworld_melee
+from mineshaft.sim.combat import mineshaft_player_damage, resolve_overworld_melee
 from mineshaft.sim.crafting import try_craft
 from mineshaft.sim.mining import can_mine_tile, mine_tile
 
 MoveDir = Literal["N", "S", "E", "W"]
 MAX_LOG = 80
+# Minecraft-style day length; advances with hunger ticks (player actions).
+WORLD_TIME_ADVANCE = 250
 
 
 class Game:
@@ -27,10 +29,11 @@ class Game:
         "overworld",
         "player",
         "mode",
-        "dungeon",
-        "dungeons",
+        "mineshaft_run",
+        "mineshaft_runs",
         "saved_entrance_facing",
         "moves_since_hunger",
+        "world_time_ticks",
         "_log",
     )
 
@@ -40,11 +43,12 @@ class Game:
         seed: int,
         overworld: Overworld,
         player: Player,
-        mode: Literal["overworld", "dungeon"],
-        dungeons: dict[str, DungeonInstance],
-        dungeon: DungeonInstance | None,
+        mode: Literal["overworld", "mineshaft"],
+        mineshaft_runs: dict[str, MineshaftRun],
+        mineshaft_run: MineshaftRun | None,
         saved_entrance_facing: Direction,
         moves_since_hunger: int,
+        world_time_ticks: int,
         log: list[str],
     ) -> Game:
         g = cls.__new__(cls)
@@ -53,10 +57,11 @@ class Game:
         g.overworld = overworld
         g.player = player
         g.mode = mode
-        g.dungeons = dungeons
-        g.dungeon = dungeon
+        g.mineshaft_runs = mineshaft_runs
+        g.mineshaft_run = mineshaft_run
         g.saved_entrance_facing = saved_entrance_facing
         g.moves_since_hunger = moves_since_hunger
+        g.world_time_ticks = world_time_ticks
         g._log = list(log)
         return g
 
@@ -66,11 +71,12 @@ class Game:
         ow, (px, py) = generate_overworld(self.rng, self.seed)
         self.overworld = ow
         self.player = Player(pos=Pos(px, py), facing=Direction.N)
-        self.mode: Literal["overworld", "dungeon"] = "overworld"
-        self.dungeon: DungeonInstance | None = None
-        self.dungeons: dict[str, DungeonInstance] = {}
+        self.mode: Literal["overworld", "mineshaft"] = "overworld"
+        self.mineshaft_run: MineshaftRun | None = None
+        self.mineshaft_runs: dict[str, MineshaftRun] = {}
         self.saved_entrance_facing = Direction.N
         self.moves_since_hunger = 0
+        self.world_time_ticks = 0
         self._log: list[str] = []
         self.log("WASD move · Space mine ahead · E interact/take exit · C craft · F eat")
 
@@ -82,6 +88,7 @@ class Game:
         self._log.append(msg)
 
     def _hunger_tick(self) -> None:
+        self.world_time_ticks += WORLD_TIME_ADVANCE
         self.moves_since_hunger += 1
         if self.moves_since_hunger >= 12:
             self.moves_since_hunger = 0
@@ -148,7 +155,7 @@ class Game:
             if not self.overworld.in_bounds(np):
                 continue
             k = (np.x, np.y)
-            if k in self.overworld.mobs or self.overworld.cave_to_dungeon.get(k):
+            if k in self.overworld.mobs or self.overworld.cave_to_mineshaft_id.get(k):
                 continue
             if self.overworld.tile_at(np).blocks_movement():
                 continue
@@ -187,39 +194,39 @@ class Game:
         if self.mode == "overworld":
             t = self.overworld.tile_at(self.player.pos)
             if t.kind is TileKind.CAVE_ENTRANCE:
-                did = self.overworld.cave_to_dungeon[(self.player.pos.x, self.player.pos.y)]
-                if did not in self.dungeons:
+                mid = self.overworld.cave_to_mineshaft_id[(self.player.pos.x, self.player.pos.y)]
+                if mid not in self.mineshaft_runs:
                     tier = self.rng.randint(0, 2)
-                    self.dungeons[did] = generate_dungeon(
+                    self.mineshaft_runs[mid] = generate_mineshaft(
                         self.rng,
-                        did,
+                        mid,
                         tier,
                         (self.player.pos.x, self.player.pos.y),
                     )
-                self.dungeon = self.dungeons[did]
-                self.mode = "dungeon"
+                self.mineshaft_run = self.mineshaft_runs[mid]
+                self.mode = "mineshaft"
                 self.saved_entrance_facing = self.player.facing
-                self.log("You descend into the mineshaft.")
-                self._maybe_resolve_dungeon_room()
+                self.log("You descend into the abandoned mineshaft.")
+                self._maybe_resolve_mineshaft_room()
             else:
                 self.log("Nothing to interact with.")
         else:
-            assert self.dungeon is not None
-            room = self.dungeon.rooms[self.dungeon.current_room]
+            assert self.mineshaft_run is not None
+            room = self.mineshaft_run.rooms[self.mineshaft_run.current_room]
             if room.exit_to_overworld:
                 self.mode = "overworld"
-                x, y = self.dungeon.overworld_return
+                x, y = self.mineshaft_run.overworld_return
                 self.player.pos = Pos(x, y)
                 self.player.facing = self.saved_entrance_facing
-                self.dungeon = None
+                self.mineshaft_run = None
                 self.log("You climb back to the surface.")
             else:
-                self.log("No ladder here — find the room marked Escape shaft.")
+                self.log("No ladder here — find the escape shaft.")
 
-    def dungeon_go(self, exit_label: str) -> None:
-        if self.mode != "dungeon" or self.dungeon is None:
+    def mineshaft_go(self, exit_label: str) -> None:
+        if self.mode != "mineshaft" or self.mineshaft_run is None:
             return
-        dg = self.dungeon
+        dg = self.mineshaft_run
         room = dg.rooms[dg.current_room]
         if exit_label not in room.exits:
             self.log("No passage that way.")
@@ -227,17 +234,19 @@ class Game:
         nxt = room.exits[exit_label]
         dg.current_room = nxt
         self.log(f"→ {dg.rooms[nxt].title}")
-        self._maybe_resolve_dungeon_room()
+        self._maybe_resolve_mineshaft_room()
         self._hunger_tick()
 
-    def _maybe_resolve_dungeon_room(self) -> None:
-        dg = self.dungeon
+    def _maybe_resolve_mineshaft_room(self) -> None:
+        dg = self.mineshaft_run
         assert dg is not None
         room = dg.rooms[dg.current_room]
         if room.mob_kind and room.mob_hp > 0:
             self.log(f"Hostile: {room.mob_kind}!")
             while room.mob_hp > 0 and self.player.hp > 0:
-                room.mob_hp -= dungeon_player_damage(self.player.inventory) + self.rng.randint(0, 2)
+                room.mob_hp -= mineshaft_player_damage(self.player.inventory) + self.rng.randint(
+                    0, 2
+                )
                 if room.mob_hp <= 0:
                     self.log("Enemy defeated.")
                     if room.loot_id and not room.loot_taken:

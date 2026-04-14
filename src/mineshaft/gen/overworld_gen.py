@@ -85,7 +85,7 @@ def generate_overworld(
         biome.append(brow)
         tiles.append(trow)
 
-    cave_to_dungeon: dict[tuple[int, int], str] = {}
+    cave_to_mineshaft_id: dict[tuple[int, int], str] = {}
     mobs: dict[tuple[int, int], OverworldMob] = {}
 
     # Find candidate cave tiles (grass/dirt, not near edges)
@@ -111,7 +111,7 @@ def generate_overworld(
             continue
         did = str(uuid.uuid4())
         tiles[cy][cx] = Tile(TileKind.CAVE_ENTRANCE)
-        cave_to_dungeon[(cx, cy)] = did
+        cave_to_mineshaft_id[(cx, cy)] = did
         placed += 1
 
     # Player start: first non-blocking inner tile
@@ -129,7 +129,7 @@ def generate_overworld(
         y = rng.randrange(2, height - 2)
         if (x, y) == (px, py):
             continue
-        if cave_to_dungeon.get((x, y)):
+        if cave_to_mineshaft_id.get((x, y)):
             continue
         if tiles[y][x].blocks_movement():
             continue
@@ -140,7 +140,7 @@ def generate_overworld(
         kind = rng.choice(["crawler", "stray", "boar"])
         hp = rng.randint(4, 9)
         atk = rng.randint(1, 3)
-        if (x, y) not in mobs and (x, y) not in cave_to_dungeon:
+        if (x, y) not in mobs and (x, y) not in cave_to_mineshaft_id:
             mobs[(x, y)] = OverworldMob(kind=kind, hp=hp, max_hp=hp, atk=atk)
 
     ow = Overworld(
@@ -148,7 +148,7 @@ def generate_overworld(
         height=height,
         tiles=tiles,
         biome=biome,
-        cave_to_dungeon=cave_to_dungeon,
+        cave_to_mineshaft_id=cave_to_mineshaft_id,
         mobs=mobs,
     )
     return ow, (px, py)

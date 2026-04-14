@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class DungeonRoom:
+class MineshaftRoom:
     id: str
     title: str
     depth: int
@@ -20,10 +20,10 @@ class DungeonRoom:
 
 
 @dataclass
-class DungeonInstance:
-    dungeon_id: str
+class MineshaftRun:
+    mineshaft_id: str
     tier: int
-    rooms: dict[str, DungeonRoom]
+    rooms: dict[str, MineshaftRoom]
     current_room: str
     entrance_room_id: str
     overworld_return: tuple[int, int]

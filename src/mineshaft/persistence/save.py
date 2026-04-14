@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from mineshaft.domain.direction import Direction
-from mineshaft.domain.dungeon import DungeonInstance, DungeonRoom
 from mineshaft.domain.inventory import Inventory
+from mineshaft.domain.mineshaft_run import MineshaftRoom, MineshaftRun
 from mineshaft.domain.overworld import Overworld, OverworldMob
 from mineshaft.domain.player import Player
 from mineshaft.domain.pos import Pos
@@ -31,7 +31,7 @@ def _serialize_overworld(ow: Overworld) -> dict[str, Any]:
         "height": ow.height,
         "tiles": [[_tile_to_json(t) for t in row] for row in ow.tiles],
         "biome": [[b.name for b in row] for row in ow.biome],
-        "cave_to_dungeon": {f"{x},{y}": v for (x, y), v in ow.cave_to_dungeon.items()},
+        "cave_to_mineshaft_id": {f"{x},{y}": v for (x, y), v in ow.cave_to_mineshaft_id.items()},
         "mobs": {
             f"{x},{y}": {"kind": m.kind, "hp": m.hp, "max_hp": m.max_hp, "atk": m.atk}
             for (x, y), m in ow.mobs.items()
@@ -47,11 +47,14 @@ def _deserialize_overworld(d: dict[str, Any]) -> Overworld:
     biome: list[list[BiomeKind]] = [
         [BiomeKind[b] for b in row] for row in d["biome"]
     ]
-    cave_raw = d["cave_to_dungeon"]
-    cave_to_dungeon: dict[tuple[int, int], str] = {}
+    if "cave_to_mineshaft_id" in d:
+        cave_raw = d["cave_to_mineshaft_id"]
+    else:
+        cave_raw = d["cave_to_dungeon"]
+    cave_to_mineshaft_id: dict[tuple[int, int], str] = {}
     for k, v in cave_raw.items():
         xs, ys = k.split(",")
-        cave_to_dungeon[(int(xs), int(ys))] = v
+        cave_to_mineshaft_id[(int(xs), int(ys))] = v
     mobs: dict[tuple[int, int], OverworldMob] = {}
     for k, m in d["mobs"].items():
         xs, ys = k.split(",")
@@ -63,37 +66,48 @@ def _deserialize_overworld(d: dict[str, Any]) -> Overworld:
         height=h,
         tiles=tiles,
         biome=biome,
-        cave_to_dungeon=cave_to_dungeon,
+        cave_to_mineshaft_id=cave_to_mineshaft_id,
         mobs=mobs,
     )
 
 
-def _serialize_dungeon(di: DungeonInstance) -> dict[str, Any]:
-    rooms = {k: asdict(v) for k, v in di.rooms.items()}
+def _serialize_mineshaft_run(run: MineshaftRun) -> dict[str, Any]:
+    rooms = {k: asdict(v) for k, v in run.rooms.items()}
     return {
-        "dungeon_id": di.dungeon_id,
-        "tier": di.tier,
+        "mineshaft_id": run.mineshaft_id,
+        "tier": run.tier,
         "rooms": rooms,
-        "current_room": di.current_room,
-        "entrance_room_id": di.entrance_room_id,
-        "overworld_return": list(di.overworld_return),
+        "current_room": run.current_room,
+        "entrance_room_id": run.entrance_room_id,
+        "overworld_return": list(run.overworld_return),
     }
 
 
-def _deserialize_dungeon(d: dict[str, Any]) -> DungeonInstance:
+def _deserialize_mineshaft_run(d: dict[str, Any]) -> MineshaftRun:
     rooms_raw = d["rooms"]
-    rooms: dict[str, DungeonRoom] = {}
+    mid = d.get("mineshaft_id") or d.get("dungeon_id")
+    if not mid:
+        raise ValueError("mineshaft save missing mineshaft_id / dungeon_id")
+    rooms: dict[str, MineshaftRoom] = {}
     for rid, rr in rooms_raw.items():
-        rooms[rid] = DungeonRoom(**rr)
+        rooms[rid] = MineshaftRoom(**rr)
     ox, oy = d["overworld_return"]
-    return DungeonInstance(
-        dungeon_id=d["dungeon_id"],
+    return MineshaftRun(
+        mineshaft_id=mid,
         tier=d["tier"],
         rooms=rooms,
         current_room=d["current_room"],
         entrance_room_id=d["entrance_room_id"],
         overworld_return=(int(ox), int(oy)),
     )
+
+
+def _normalize_mode(raw: str) -> Literal["overworld", "mineshaft"]:
+    if raw == "dungeon":
+        return "mineshaft"
+    if raw in ("overworld", "mineshaft"):
+        return raw
+    raise ValueError(f"Unknown mode in save: {raw!r}")
 
 
 def _serialize_player(p: Player) -> dict[str, Any]:
@@ -128,10 +142,11 @@ def save_game(path: Path, game: Game) -> None:
         "mode": game.mode,
         "overworld": _serialize_overworld(game.overworld),
         "player": _serialize_player(game.player),
-        "dungeons": {k: _serialize_dungeon(v) for k, v in game.dungeons.items()},
-        "active_dungeon_id": game.dungeon.dungeon_id if game.dungeon else None,
+        "mineshaft_runs": {k: _serialize_mineshaft_run(v) for k, v in game.mineshaft_runs.items()},
+        "active_mineshaft_id": game.mineshaft_run.mineshaft_id if game.mineshaft_run else None,
         "saved_entrance_facing": game.saved_entrance_facing.name,
         "moves_since_hunger": game.moves_since_hunger,
+        "world_time_ticks": game.world_time_ticks,
         "log": game.log_lines,
     }
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -144,17 +159,19 @@ def load_game(path: Path) -> Game:
 
     ow = _deserialize_overworld(raw["overworld"])
     player = _deserialize_player(raw["player"])
-    dungeons = {k: _deserialize_dungeon(v) for k, v in raw["dungeons"].items()}
-    aid = raw.get("active_dungeon_id")
-    dung = dungeons[aid] if aid else None
+    runs_raw = raw.get("mineshaft_runs", raw.get("dungeons", {}))
+    mineshaft_runs = {k: _deserialize_mineshaft_run(v) for k, v in runs_raw.items()}
+    aid = raw.get("active_mineshaft_id", raw.get("active_dungeon_id"))
+    active = mineshaft_runs[aid] if aid else None
     return Game.from_snapshot(
         seed=raw["seed"],
         overworld=ow,
         player=player,
-        mode=raw["mode"],
-        dungeons=dungeons,
-        dungeon=dung,
+        mode=_normalize_mode(raw["mode"]),
+        mineshaft_runs=mineshaft_runs,
+        mineshaft_run=active,
         saved_entrance_facing=Direction[raw["saved_entrance_facing"]],
         moves_since_hunger=raw.get("moves_since_hunger", 0),
+        world_time_ticks=raw.get("world_time_ticks", 0),
         log=list(raw.get("log", [])),
     )

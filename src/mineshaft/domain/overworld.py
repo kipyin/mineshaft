@@ -20,7 +20,7 @@ class Overworld:
     height: int
     tiles: list[list[Tile]]
     biome: list[list[BiomeKind]]
-    cave_to_dungeon: dict[tuple[int, int], str]
+    cave_to_mineshaft_id: dict[tuple[int, int], str]
     mobs: dict[tuple[int, int], OverworldMob] = field(default_factory=dict)
 
     def in_bounds(self, pos: Pos) -> bool:
