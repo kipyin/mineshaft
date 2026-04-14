@@ -1,0 +1,284 @@
+from __future__ import annotations
+
+import random
+from typing import Literal
+
+from mineshaft.domain.direction import Direction
+from mineshaft.domain.dungeon import DungeonInstance
+from mineshaft.domain.items import ItemId
+from mineshaft.domain.overworld import Overworld, OverworldMob
+from mineshaft.domain.player import Player
+from mineshaft.domain.pos import Pos
+from mineshaft.domain.tiles import BiomeKind, TileKind
+from mineshaft.gen.dungeon_gen import generate_dungeon
+from mineshaft.gen.overworld_gen import generate_overworld
+from mineshaft.sim.combat import dungeon_player_damage, resolve_overworld_melee
+from mineshaft.sim.crafting import try_craft
+from mineshaft.sim.mining import can_mine_tile, mine_tile
+
+MoveDir = Literal["N", "S", "E", "W"]
+MAX_LOG = 80
+
+
+class Game:
+    __slots__ = (
+        "seed",
+        "rng",
+        "overworld",
+        "player",
+        "mode",
+        "dungeon",
+        "dungeons",
+        "saved_entrance_facing",
+        "moves_since_hunger",
+        "_log",
+    )
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        seed: int,
+        overworld: Overworld,
+        player: Player,
+        mode: Literal["overworld", "dungeon"],
+        dungeons: dict[str, DungeonInstance],
+        dungeon: DungeonInstance | None,
+        saved_entrance_facing: Direction,
+        moves_since_hunger: int,
+        log: list[str],
+    ) -> Game:
+        g = cls.__new__(cls)
+        g.seed = seed
+        g.rng = random.Random(seed)
+        g.overworld = overworld
+        g.player = player
+        g.mode = mode
+        g.dungeons = dungeons
+        g.dungeon = dungeon
+        g.saved_entrance_facing = saved_entrance_facing
+        g.moves_since_hunger = moves_since_hunger
+        g._log = list(log)
+        return g
+
+    def __init__(self, seed: int | None = None) -> None:
+        self.seed = seed if seed is not None else random.randrange(1, 2**31 - 1)
+        self.rng = random.Random(self.seed)
+        ow, (px, py) = generate_overworld(self.rng, self.seed)
+        self.overworld = ow
+        self.player = Player(pos=Pos(px, py), facing=Direction.N)
+        self.mode: Literal["overworld", "dungeon"] = "overworld"
+        self.dungeon: DungeonInstance | None = None
+        self.dungeons: dict[str, DungeonInstance] = {}
+        self.saved_entrance_facing = Direction.N
+        self.moves_since_hunger = 0
+        self._log: list[str] = []
+        self.log("WASD move · Space mine ahead · E interact/take exit · C craft · F eat")
+
+    @property
+    def log_lines(self) -> list[str]:
+        return list(self._log[-MAX_LOG:])
+
+    def log(self, msg: str) -> None:
+        self._log.append(msg)
+
+    def _hunger_tick(self) -> None:
+        self.moves_since_hunger += 1
+        if self.moves_since_hunger >= 12:
+            self.moves_since_hunger = 0
+            if self.player.hunger > 0:
+                self.player.hunger -= 1
+            else:
+                self.player.hp = max(0, self.player.hp - 1)
+                self.log("You are starving.")
+
+    def move_overworld(self, d: MoveDir) -> None:
+        dir_map = {"N": Direction.N, "S": Direction.S, "W": Direction.W, "E": Direction.E}
+        direction = dir_map[d]
+        self.player.facing = direction
+        npos = self.player.pos.offset(direction.dx, direction.dy)
+        if not self.overworld.in_bounds(npos):
+            self.log("Blocked.")
+            return
+        key = (npos.x, npos.y)
+        if key in self.overworld.mobs:
+            mob = self.overworld.mobs[key]
+            new_hp, mob_left, defeated = resolve_overworld_melee(
+                self.player.inventory,
+                mob.hp,
+                mob.atk,
+                self.player.hp,
+                self.rng,
+            )
+            self.player.hp = new_hp
+            if not defeated:
+                self.log("You exchange blows and fall back.")
+                return
+            del self.overworld.mobs[key]
+            self.log(f"Defeated {mob.kind}.")
+            if self.rng.random() < 0.45:
+                self.player.inventory.add(ItemId.RAW_MEAT, 1)
+                self.log("Dropped raw meat.")
+            if self.player.hp <= 0:
+                return
+            t = self.overworld.tile_at(npos)
+            if t.blocks_movement():
+                return
+            self.player.pos = npos
+            self._maybe_random_encounter_at_new_cell()
+            self._hunger_tick()
+            return
+
+        t = self.overworld.tile_at(npos)
+        if t.blocks_movement():
+            self.log("Blocked.")
+            return
+        self.player.pos = npos
+        self._maybe_random_encounter_at_new_cell()
+        self._hunger_tick()
+
+    def _maybe_random_encounter_at_new_cell(self) -> None:
+        p = self.player.pos
+        if self.overworld.biome_at(p) is not BiomeKind.FOREST:
+            return
+        if self.rng.random() > 0.055:
+            return
+        candidates: list[Pos] = []
+        for dx, dy in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+            np = p.offset(dx, dy)
+            if not self.overworld.in_bounds(np):
+                continue
+            k = (np.x, np.y)
+            if k in self.overworld.mobs or self.overworld.cave_to_dungeon.get(k):
+                continue
+            if self.overworld.tile_at(np).blocks_movement():
+                continue
+            candidates.append(np)
+        if not candidates:
+            return
+        spot = self.rng.choice(candidates)
+        key = (spot.x, spot.y)
+        kind = self.rng.choice(["crawler", "stray"])
+        hp = self.rng.randint(3, 7)
+        atk = self.rng.randint(1, 3)
+        self.overworld.mobs[key] = OverworldMob(kind=kind, hp=hp, max_hp=hp, atk=atk)
+        self.log(f"A {kind} appears nearby!")
+
+    def mine_forward(self) -> None:
+        if self.mode != "overworld":
+            return
+        d = self.player.facing
+        tpos = self.player.pos.offset(d.dx, d.dy)
+        if not self.overworld.in_bounds(tpos):
+            self.log("Nothing to mine.")
+            return
+        tile = self.overworld.tile_at(tpos)
+        if not tile.mineable() or not can_mine_tile(self.player.inventory, tile.kind):
+            self.log("You cannot mine that.")
+            return
+        new_tile, drops = mine_tile(self.player.inventory, self.rng, tile)
+        for item, n in drops:
+            if n > 0:
+                self.player.inventory.add(item, n)
+                self.log(f"+{n} {item}")
+        self.overworld.set_tile(tpos, new_tile)
+        self._hunger_tick()
+
+    def interact(self) -> None:
+        if self.mode == "overworld":
+            t = self.overworld.tile_at(self.player.pos)
+            if t.kind is TileKind.CAVE_ENTRANCE:
+                did = self.overworld.cave_to_dungeon[(self.player.pos.x, self.player.pos.y)]
+                if did not in self.dungeons:
+                    tier = self.rng.randint(0, 2)
+                    self.dungeons[did] = generate_dungeon(
+                        self.rng,
+                        did,
+                        tier,
+                        (self.player.pos.x, self.player.pos.y),
+                    )
+                self.dungeon = self.dungeons[did]
+                self.mode = "dungeon"
+                self.saved_entrance_facing = self.player.facing
+                self.log("You descend into the mineshaft.")
+                self._maybe_resolve_dungeon_room()
+            else:
+                self.log("Nothing to interact with.")
+        else:
+            assert self.dungeon is not None
+            room = self.dungeon.rooms[self.dungeon.current_room]
+            if room.exit_to_overworld:
+                self.mode = "overworld"
+                x, y = self.dungeon.overworld_return
+                self.player.pos = Pos(x, y)
+                self.player.facing = self.saved_entrance_facing
+                self.dungeon = None
+                self.log("You climb back to the surface.")
+            else:
+                self.log("No ladder here — find the room marked Escape shaft.")
+
+    def dungeon_go(self, exit_label: str) -> None:
+        if self.mode != "dungeon" or self.dungeon is None:
+            return
+        dg = self.dungeon
+        room = dg.rooms[dg.current_room]
+        if exit_label not in room.exits:
+            self.log("No passage that way.")
+            return
+        nxt = room.exits[exit_label]
+        dg.current_room = nxt
+        self.log(f"→ {dg.rooms[nxt].title}")
+        self._maybe_resolve_dungeon_room()
+        self._hunger_tick()
+
+    def _maybe_resolve_dungeon_room(self) -> None:
+        dg = self.dungeon
+        assert dg is not None
+        room = dg.rooms[dg.current_room]
+        if room.mob_kind and room.mob_hp > 0:
+            self.log(f"Hostile: {room.mob_kind}!")
+            while room.mob_hp > 0 and self.player.hp > 0:
+                room.mob_hp -= dungeon_player_damage(self.player.inventory) + self.rng.randint(0, 2)
+                if room.mob_hp <= 0:
+                    self.log("Enemy defeated.")
+                    if room.loot_id and not room.loot_taken:
+                        self.player.inventory.add(room.loot_id, 1)
+                        self.log(f"Found {room.loot_id}.")
+                        room.loot_taken = True
+                    break
+                self.player.hp -= room.mob_atk + self.rng.randint(0, 1)
+                self.log(f"You are hit (HP {self.player.hp}).")
+            if self.player.hp <= 0:
+                self.log("You collapse in the dark.")
+                self.player.hp = 0
+
+    def craft_by_index(self, idx: int) -> bool:
+        from mineshaft.domain.items import RECIPES
+
+        if idx < 0 or idx >= len(RECIPES):
+            return False
+        r = RECIPES[idx]
+        if try_craft(self.player.inventory, r):
+            self.log(f"Crafted {r.produces} x{r.count}.")
+            return True
+        self.log("Cannot craft that.")
+        return False
+
+    def eat_if_any(self) -> bool:
+        inv = self.player.inventory
+        for food in (ItemId.COOKED_MEAT, ItemId.BREAD, ItemId.APPLE, ItemId.RAW_MEAT):
+            if inv.count(food) > 0:
+                inv.remove(food, 1)
+                if food is ItemId.COOKED_MEAT:
+                    gain = 6
+                elif food is ItemId.BREAD:
+                    gain = 5
+                elif food is ItemId.APPLE:
+                    gain = 4
+                else:
+                    gain = 2
+                self.player.hunger = min(self.player.max_hunger, self.player.hunger + gain)
+                self.player.hp = min(self.player.max_hp, self.player.hp + 1)
+                self.log(f"Ate {food}.")
+                return True
+        self.log("No food.")
+        return False
