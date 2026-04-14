@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -27,3 +27,4 @@ class MineshaftRun:
     current_room: str
     entrance_room_id: str
     overworld_return: tuple[int, int]
+    visited_room_ids: list[str] = field(default_factory=list)

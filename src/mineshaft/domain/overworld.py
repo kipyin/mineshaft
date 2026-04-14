@@ -34,3 +34,14 @@ class Overworld:
 
     def set_tile(self, pos: Pos, tile: Tile) -> None:
         self.tiles[pos.y][pos.x] = tile
+
+
+def first_walkable_inner_tile(ow: Overworld) -> Pos:
+    """First walkable inner tile (same scan order as overworld generation)."""
+    w, h = ow.width, ow.height
+    for attempt in range(w * h):
+        x = 1 + (attempt // h) % (w - 2)
+        y = 1 + attempt % (h - 2)
+        if not ow.tile_at(Pos(x, y)).blocks_movement():
+            return Pos(x, y)
+    return Pos(w // 2, h // 2)

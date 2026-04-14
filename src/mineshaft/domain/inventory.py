@@ -37,5 +37,8 @@ class Inventory:
             self.remove(k, v)
         return True
 
+    def clear(self) -> None:
+        self.counts.clear()
+
     def copy(self) -> Self:
         return self.__class__(dict(self.counts))
