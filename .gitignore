@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Local game settings (optional)
+mineshaft_settings.json
