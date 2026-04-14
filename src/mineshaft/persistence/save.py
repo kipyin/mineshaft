@@ -8,13 +8,13 @@ from typing import Any, Literal
 from mineshaft.domain.direction import Direction
 from mineshaft.domain.inventory import Inventory
 from mineshaft.domain.mineshaft_run import MineshaftRoom, MineshaftRun
-from mineshaft.domain.overworld import Overworld, OverworldMob
+from mineshaft.domain.overworld import Overworld, OverworldMob, first_walkable_inner_tile
 from mineshaft.domain.player import Player
 from mineshaft.domain.pos import Pos
 from mineshaft.domain.tiles import BiomeKind, Tile, TileKind
 from mineshaft.sim.engine import Game
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def _tile_to_json(t: Tile) -> str:
@@ -80,6 +80,7 @@ def _serialize_mineshaft_run(run: MineshaftRun) -> dict[str, Any]:
         "current_room": run.current_room,
         "entrance_room_id": run.entrance_room_id,
         "overworld_return": list(run.overworld_return),
+        "visited_room_ids": list(run.visited_room_ids),
     }
 
 
@@ -92,13 +93,18 @@ def _deserialize_mineshaft_run(d: dict[str, Any]) -> MineshaftRun:
     for rid, rr in rooms_raw.items():
         rooms[rid] = MineshaftRoom(**rr)
     ox, oy = d["overworld_return"]
+    visited = list(d.get("visited_room_ids") or [])
+    cur = d["current_room"]
+    if cur and cur not in visited:
+        visited.append(cur)
     return MineshaftRun(
         mineshaft_id=mid,
         tier=d["tier"],
         rooms=rooms,
-        current_room=d["current_room"],
+        current_room=cur,
         entrance_room_id=d["entrance_room_id"],
         overworld_return=(int(ox), int(oy)),
+        visited_room_ids=visited,
     )
 
 
@@ -142,6 +148,7 @@ def save_game(path: Path, game: Game) -> None:
         "mode": game.mode,
         "overworld": _serialize_overworld(game.overworld),
         "player": _serialize_player(game.player),
+        "spawn_pos": [game.spawn_pos.x, game.spawn_pos.y],
         "mineshaft_runs": {k: _serialize_mineshaft_run(v) for k, v in game.mineshaft_runs.items()},
         "active_mineshaft_id": game.mineshaft_run.mineshaft_id if game.mineshaft_run else None,
         "saved_entrance_facing": game.saved_entrance_facing.name,
@@ -154,19 +161,26 @@ def save_game(path: Path, game: Game) -> None:
 
 def load_game(path: Path) -> Game:
     raw = json.loads(path.read_text(encoding="utf-8"))
-    if raw.get("schema_version", 1) != SCHEMA_VERSION:
-        raise ValueError("Unsupported save schema")
+    sv = int(raw.get("schema_version", 1))
+    if sv < 1 or sv > SCHEMA_VERSION:
+        raise ValueError(f"Unsupported save schema: {sv}")
 
     ow = _deserialize_overworld(raw["overworld"])
     player = _deserialize_player(raw["player"])
+    if "spawn_pos" in raw:
+        sx, sy = raw["spawn_pos"]
+        spawn_pos = Pos(int(sx), int(sy))
+    else:
+        spawn_pos = first_walkable_inner_tile(ow)
     runs_raw = raw.get("mineshaft_runs", raw.get("dungeons", {}))
     mineshaft_runs = {k: _deserialize_mineshaft_run(v) for k, v in runs_raw.items()}
     aid = raw.get("active_mineshaft_id", raw.get("active_dungeon_id"))
     active = mineshaft_runs[aid] if aid else None
-    return Game.from_snapshot(
+    g = Game.from_snapshot(
         seed=raw["seed"],
         overworld=ow,
         player=player,
+        spawn_pos=spawn_pos,
         mode=_normalize_mode(raw["mode"]),
         mineshaft_runs=mineshaft_runs,
         mineshaft_run=active,
@@ -175,3 +189,11 @@ def load_game(path: Path) -> Game:
         world_time_ticks=raw.get("world_time_ticks", 0),
         log=list(raw.get("log", [])),
     )
+    if g.player.hp <= 0:
+        g.player.hp = g.player.max_hp
+        g.player.hunger = g.player.max_hunger
+        if g.mode == "mineshaft":
+            g.mode = "overworld"
+            g.mineshaft_run = None
+        g.player.pos = Pos(g.spawn_pos.x, g.spawn_pos.y)
+    return g
