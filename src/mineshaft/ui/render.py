@@ -144,40 +144,61 @@ def _overworld_cell(
     return char, st
 
 
-def render_overworld(ow: Overworld, player: Player, radius: int = 10) -> Text:
+def render_overworld(
+    ow: Overworld,
+    player: Player,
+    radius_w: int = 10,
+    radius_h: int = 10,
+) -> Text:
     """Colored terrain blocks; gatherables use distinct glyphs; forward mining cell highlighted."""
     forward = _forward_cell(player)
     out = Text()
-    for dy in range(-radius, radius + 1):
-        for dx in range(-radius, radius + 1):
+    for dy in range(-radius_h, radius_h + 1):
+        for dx in range(-radius_w, radius_w + 1):
             px, py = player.pos.x + dx, player.pos.y + dy
             is_pl = px == player.pos.x and py == player.pos.y
             is_fc = (px, py) == (forward.x, forward.y) and not is_pl
             ch, st = _overworld_cell(ow, px, py, is_pl, is_fc)
             out.append(ch, style=st)
-        if dy < radius:
+        if dy < radius_h:
             out.append("\n")
     return out
 
 
 def render_mineshaft(run: MineshaftRun) -> str:
     r = run.rooms[run.current_room]
-    lines = [
+    inner_w = 52
+    top = "╔" + "═" * (inner_w - 2) + "╗"
+    bot = "╚" + "═" * (inner_w - 2) + "╝"
+
+    def row(s: str) -> str:
+        pad = inner_w - 2 - len(s)
+        if pad < 0:
+            s = s[: inner_w - 2]
+            pad = 0
+        return "║" + s + " " * pad + "║"
+
+    explored = len(set(run.visited_room_ids) | {run.current_room})
+    total_rooms = len(run.rooms)
+    body_lines = [
+        "Abandoned mineshaft (text crawl — no block grid)",
+        "",
         r.title,
-        f"Depth: {r.depth}  Tier: {run.tier}",
+        f"Depth: {r.depth}  Tier: {run.tier}  Rooms explored: {explored}/{total_rooms}",
         "",
         "Exits:",
     ]
     for direction, dest in sorted(r.exits.items()):
-        lines.append(f"  {direction:5} → {run.rooms[dest].title}")
-    lines.append("")
+        body_lines.append(f"  {direction:5} → {run.rooms[dest].title}")
+    body_lines.append("")
     if r.exit_to_overworld:
-        lines.append("[E] Climb ladder to surface (press E)")
+        body_lines.append("[E] Climb ladder to surface (press E)")
     if r.mob_kind and r.mob_hp > 0:
-        lines.append(f"Threat: {r.mob_kind} HP {r.mob_hp}")
+        body_lines.append(f"Threat: {r.mob_kind} HP {r.mob_hp}")
     elif r.loot_id and not r.loot_taken:
-        lines.append(f"Salvage: {item_name(r.loot_id)}")
-    return "\n".join(lines)
+        body_lines.append(f"Salvage: {item_name(r.loot_id)}")
+    framed = [top] + [row(line) for line in body_lines] + [bot]
+    return "\n".join(framed)
 
 
 def render_sidebar(game, show_debug: bool = False) -> str:

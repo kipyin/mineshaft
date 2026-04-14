@@ -76,17 +76,33 @@ class MineshaftApp(App[None]):
         for line in self.game.log_lines:
             log.write(line)
 
+    def _viewport_radii(self) -> tuple[int, int]:
+        try:
+            static = self.query_one("#map", Static)
+            sw, sh = static.size.width, static.size.height
+        except Exception:
+            sw, sh = 21, 21
+        if sw < 3 or sh < 3:
+            sw, sh = 21, 21
+        rw = max(1, min(100, (sw - 1) // 2))
+        rh = max(1, min(50, (sh - 1) // 2))
+        return rw, rh
+
     def refresh_all(self) -> None:
         g = self.game
         mp = self.query_one("#map", Static)
         side = self.query_one("#sidebar", Static)
         if g.mode == "overworld":
-            mp.update(render_overworld(g.overworld, g.player))
+            rw, rh = self._viewport_radii()
+            mp.update(render_overworld(g.overworld, g.player, rw, rh))
         else:
             assert g.mineshaft_run is not None
             mp.update(render_mineshaft(g.mineshaft_run))
         side.update(render_sidebar(g, show_debug=self._debug_overlay))
         self._sync_log()
+
+    def on_resize(self, event: events.Resize) -> None:
+        self.refresh_all()
 
     def action_toggle_debug(self) -> None:
         self._debug_overlay = not self._debug_overlay
