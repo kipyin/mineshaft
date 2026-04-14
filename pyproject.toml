@@ -1,0 +1,36 @@
+[project]
+name = "mineshaft"
+version = "0.1.0"
+description = "Text-based Minecraft-inspired terminal game"
+readme = "README.md"
+authors = [
+    { name = "Kip Yin", email = "debunk-barmaid-duo@duck.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "textual>=8.2.3",
+    "typer>=0.24.1",
+]
+
+[project.scripts]
+mineshaft = "mineshaft:main"
+
+[build-system]
+requires = ["uv_build>=0.10.4,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "ruff>=0.15.10",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
