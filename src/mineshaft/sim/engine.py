@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from typing import Literal
 
+from mineshaft.config import load_settings
 from mineshaft.domain.direction import Direction
 from mineshaft.domain.items import ItemId
 from mineshaft.domain.mineshaft_run import MineshaftRun
@@ -28,6 +29,7 @@ class Game:
         "rng",
         "overworld",
         "player",
+        "spawn_pos",
         "mode",
         "mineshaft_run",
         "mineshaft_runs",
@@ -43,6 +45,7 @@ class Game:
         seed: int,
         overworld: Overworld,
         player: Player,
+        spawn_pos: Pos,
         mode: Literal["overworld", "mineshaft"],
         mineshaft_runs: dict[str, MineshaftRun],
         mineshaft_run: MineshaftRun | None,
@@ -56,6 +59,7 @@ class Game:
         g.rng = random.Random(seed)
         g.overworld = overworld
         g.player = player
+        g.spawn_pos = spawn_pos
         g.mode = mode
         g.mineshaft_runs = mineshaft_runs
         g.mineshaft_run = mineshaft_run
@@ -70,6 +74,7 @@ class Game:
         self.rng = random.Random(self.seed)
         ow, (px, py) = generate_overworld(self.rng, self.seed)
         self.overworld = ow
+        self.spawn_pos = Pos(px, py)
         self.player = Player(pos=Pos(px, py), facing=Direction.N)
         self.mode: Literal["overworld", "mineshaft"] = "overworld"
         self.mineshaft_run: MineshaftRun | None = None
@@ -87,6 +92,29 @@ class Game:
     def log(self, msg: str) -> None:
         self._log.append(msg)
 
+    def respawn(self) -> None:
+        settings = load_settings()
+        if not settings.keep_inventory_on_respawn:
+            self.player.inventory.clear()
+        self.mode = "overworld"
+        self.mineshaft_run = None
+        self.player.pos = Pos(self.spawn_pos.x, self.spawn_pos.y)
+        self.player.facing = Direction.N
+        self.player.hp = self.player.max_hp
+        self.player.hunger = self.player.max_hunger
+        if settings.keep_inventory_on_respawn:
+            self.log("You respawn at world spawn.")
+        else:
+            self.log("You respawn at world spawn. Your inventory is gone.")
+
+    def _note_mineshaft_visit(self) -> None:
+        run = self.mineshaft_run
+        if run is None:
+            return
+        rid = run.current_room
+        if rid not in run.visited_room_ids:
+            run.visited_room_ids.append(rid)
+
     def _hunger_tick(self) -> None:
         self.world_time_ticks += WORLD_TIME_ADVANCE
         self.moves_since_hunger += 1
@@ -97,6 +125,9 @@ class Game:
             else:
                 self.player.hp = max(0, self.player.hp - 1)
                 self.log("You are starving.")
+                if self.player.hp <= 0:
+                    self.log("You succumb to hunger.")
+                    self.respawn()
 
     def move_overworld(self, d: MoveDir) -> None:
         dir_map = {"N": Direction.N, "S": Direction.S, "W": Direction.W, "E": Direction.E}
@@ -119,6 +150,9 @@ class Game:
             self.player.hp = new_hp
             if not defeated:
                 self.log("You exchange blows and fall back.")
+                if self.player.hp <= 0:
+                    self.log("You fall in battle.")
+                    self.respawn()
                 return
             del self.overworld.mobs[key]
             self.log(f"Defeated {mob.kind}.")
@@ -126,6 +160,8 @@ class Game:
                 self.player.inventory.add(ItemId.RAW_MEAT, 1)
                 self.log("Dropped raw meat.")
             if self.player.hp <= 0:
+                self.log("You fall in battle.")
+                self.respawn()
                 return
             t = self.overworld.tile_at(npos)
             if t.blocks_movement():
@@ -208,6 +244,7 @@ class Game:
                 self.saved_entrance_facing = self.player.facing
                 self.log("You descend into the abandoned mineshaft.")
                 self._maybe_resolve_mineshaft_room()
+                self._note_mineshaft_visit()
             else:
                 self.log("Nothing to interact with.")
         else:
@@ -235,6 +272,7 @@ class Game:
         dg.current_room = nxt
         self.log(f"→ {dg.rooms[nxt].title}")
         self._maybe_resolve_mineshaft_room()
+        self._note_mineshaft_visit()
         self._hunger_tick()
 
     def _maybe_resolve_mineshaft_room(self) -> None:
@@ -258,7 +296,7 @@ class Game:
                 self.log(f"You are hit (HP {self.player.hp}).")
             if self.player.hp <= 0:
                 self.log("You collapse in the dark.")
-                self.player.hp = 0
+                self.respawn()
 
     def craft_by_index(self, idx: int) -> bool:
         from mineshaft.domain.items import RECIPES
