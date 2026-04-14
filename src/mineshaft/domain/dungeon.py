@@ -1,0 +1,29 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass
+class DungeonRoom:
+    id: str
+    title: str
+    depth: int
+    exits: dict[str, str]
+    mob_kind: str | None
+    mob_hp: int
+    mob_max_hp: int
+    mob_atk: int
+    loot_id: str | None
+    loot_taken: bool = False
+    is_entrance: bool = False
+    exit_to_overworld: bool = False
+
+
+@dataclass
+class DungeonInstance:
+    dungeon_id: str
+    tier: int
+    rooms: dict[str, DungeonRoom]
+    current_room: str
+    entrance_room_id: str
+    overworld_return: tuple[int, int]
