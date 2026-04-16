@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from mineshaft.domain import mob_catalog as mob_catalog_mod
 from mineshaft.domain.direction import Direction
 from mineshaft.domain.end_run import EndRun
 from mineshaft.domain.items import ItemId
@@ -14,7 +15,7 @@ from mineshaft.domain.pos import Pos
 from mineshaft.domain.tiles import BiomeKind, Tile, TileKind
 from mineshaft.gen.nether_gen import generate_nether_world
 from mineshaft.persistence.save import load_game, save_game
-from mineshaft.sim.combat import DRAGON_MAX_HP, resolve_end_dragon_exchange
+from mineshaft.sim.combat import resolve_end_dragon_exchange
 from mineshaft.sim.engine import EYES_FOR_END, Game
 
 
@@ -90,7 +91,7 @@ def test_enter_end_from_nether_topdown_consumes_eyes() -> None:
     g.interact()
     assert g.dimension == "end"
     assert g.end_run is not None
-    assert g.end_run.dragon_hp == DRAGON_MAX_HP
+    assert g.end_run.dragon_hp == mob_catalog_mod.MOBS.boss_ender_dragon_hp
     assert g.player.inventory.count(ItemId.EYE_OF_ENDER) == 0
 
 
@@ -102,7 +103,11 @@ def test_save_roundtrip_end_state(tmp_path: Path) -> None:
     g.end_dragon_pos = dpos
     g.end_entry_spawn = esp
     g.dimension = "end"
-    g.end_run = EndRun(dragon_hp=40, dragon_max_hp=DRAGON_MAX_HP, phase=1)
+    g.end_run = EndRun(
+        dragon_hp=40,
+        dragon_max_hp=mob_catalog_mod.MOBS.boss_ender_dragon_hp,
+        phase=1,
+    )
     g.victory = False
     g.mineshaft_run = None
     g.player.pos = Pos(esp.x, esp.y)
