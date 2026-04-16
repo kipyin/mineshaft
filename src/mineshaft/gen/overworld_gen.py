@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 import uuid
 
-from mineshaft.domain.mob_catalog import MOBS
+from mineshaft.domain import mob_catalog as mob_catalog_mod
 from mineshaft.domain.overworld import Overworld, OverworldMob
 from mineshaft.domain.pos import Pos
 from mineshaft.domain.tiles import BiomeKind, Tile, TileKind
@@ -129,7 +129,7 @@ def generate_overworld(
             break
 
     # Sparse overworld hostiles in forests at night-equivalent: random mobs
-    sp = MOBS.overworld_static
+    sp = mob_catalog_mod.MOBS.overworld_static
     for _ in range(sp.attempts):
         x = rng.randrange(2, width - 2)
         y = rng.randrange(2, height - 2)

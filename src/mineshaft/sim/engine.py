@@ -5,13 +5,13 @@ from typing import Literal
 
 from mineshaft.config import load_settings
 from mineshaft.domain import items as items_mod
+from mineshaft.domain import mob_catalog as mob_catalog_mod
 from mineshaft.domain.dimension import Dimension
 from mineshaft.domain.direction import Direction
 from mineshaft.domain.end_run import EndRun
 from mineshaft.domain.items import ItemId
 from mineshaft.domain.mc_game_mode import MCGameMode
 from mineshaft.domain.mineshaft_run import MineshaftRun
-from mineshaft.domain.mob_catalog import MOBS
 from mineshaft.domain.overworld import Overworld, OverworldMob
 from mineshaft.domain.player import Player
 from mineshaft.domain.pos import Pos
@@ -289,7 +289,7 @@ class Game:
         p = self.player.pos
         if self.overworld.biome_at(p) is not BiomeKind.FOREST:
             return
-        enc = MOBS.overworld_encounter
+        enc = mob_catalog_mod.MOBS.overworld_encounter
         if self.rng.random() > enc.chance:
             return
         candidates: list[Pos] = []
