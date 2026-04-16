@@ -19,7 +19,13 @@ def can_mine_tile(inv: Inventory, kind: TileKind) -> bool:
     tier = pickaxe_tier(inv)
     if kind is TileKind.IRON_ORE:
         return tier >= 2
-    if kind in (TileKind.STONE, TileKind.COAL_ORE):
+    if kind in (
+        TileKind.STONE,
+        TileKind.COAL_ORE,
+        TileKind.NETHERRACK,
+        TileKind.SOUL_SAND,
+        TileKind.END_STONE,
+    ):
         return tier >= 1
     if kind in (TileKind.TREE, TileKind.DIRT, TileKind.GRASS, TileKind.SAND):
         return True
@@ -54,5 +60,12 @@ def mine_tile(
 
     if k is TileKind.IRON_ORE:
         return Tile(TileKind.DIRT), [(ItemId.IRON_ORE, 1)]
+
+    if k is TileKind.NETHERRACK:
+        return Tile(TileKind.SOUL_SAND), []
+    if k is TileKind.SOUL_SAND:
+        return Tile(TileKind.SOUL_SAND), []
+    if k is TileKind.END_STONE:
+        return Tile(TileKind.END_STONE), [(ItemId.COBBLESTONE, 1)]
 
     return tile, []

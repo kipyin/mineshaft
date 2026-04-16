@@ -32,5 +32,34 @@ def resolve_overworld_melee(
     return max(0, cur_p), max(0, cur_m), cur_m <= 0
 
 
-def mineshaft_player_damage(inv: Inventory) -> int:
+def nether_player_damage(inv: Inventory) -> int:
     return melee_damage(inv)
+
+
+# Backward-compatible name (nether uses former mineshaft room combat).
+mineshaft_player_damage = nether_player_damage
+
+
+# End dragon: tunable for MVP — ~12–16 Space strikes with stone sword at full HP.
+DRAGON_MAX_HP = 64
+
+
+def resolve_end_dragon_exchange(
+    inv: Inventory,
+    dragon_hp: int,
+    player_hp: int,
+    rng: random.Random,
+    phase: int,
+) -> tuple[int, int, int, bool]:
+    """One player strike then dragon counter. Returns (dragon_hp, player_hp, phase, defeated)."""
+    dragon_hp -= melee_damage(inv) + rng.randint(0, 2)
+    if dragon_hp <= 0:
+        return 0, player_hp, phase, True
+    # phase 0: ground swipe; phase 1: breath (harder) — alternate each exchange
+    if phase == 0:
+        player_hp -= 5 + rng.randint(0, 2)
+        new_phase = 1
+    else:
+        player_hp -= 7 + rng.randint(0, 3)
+        new_phase = 0
+    return dragon_hp, max(0, player_hp), new_phase, False
