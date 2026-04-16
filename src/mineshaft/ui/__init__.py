@@ -1,5 +1,5 @@
 """Textual user interface."""
 
-from mineshaft.ui.app import run_app
+from mineshaft.ui.run import run_app
 
 __all__ = ["run_app"]

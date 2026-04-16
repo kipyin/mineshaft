@@ -1,191 +1,48 @@
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from textual import events
 from textual.app import App, ComposeResult
-from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
-from textual.widgets import Footer, Header, RichLog, Static
+from textual.widgets import Static
 
-from mineshaft.domain.items import item_name
-from mineshaft.persistence.save import load_game, save_game
-from mineshaft.sim.crafting import list_craftable
-from mineshaft.sim.engine import Game, MoveDir
-from mineshaft.ui.render import render_mineshaft, render_overworld, render_sidebar
-
-DEFAULT_SAVE = Path("mineshaft_save.json")
+if TYPE_CHECKING:
+    from mineshaft.sim.engine import Game
 
 
 class MineshaftApp(App[None]):
-    CSS = """
-    #main { width: 100%; height: 1fr; }
-    #map { width: 1fr; height: 100%; min-width: 42; }
-    #side { width: 40; height: 100%; }
-    RichLog { height: 10; border: solid gray; }
-    """
+    """Minimal shell; gameplay and menu modules load lazily on first screen push."""
 
-    BINDINGS = [
-        Binding("w", "mv_n", "N", show=False),
-        Binding("s", "mv_s", "S", show=False),
-        Binding("a", "mv_w", "W", show=False),
-        Binding("d", "mv_e", "E", show=False),
-        Binding("up", "mv_n", priority=True),
-        Binding("down", "mv_s", priority=True),
-        Binding("left", "mv_w", priority=True),
-        Binding("right", "mv_e", priority=True),
-        Binding("space", "mine", "Mine"),
-        Binding("e", "interact", "Act"),
-        Binding("c", "craft_menu", "Craft"),
-        Binding("f", "eat", "Eat"),
-        Binding("S", "save", "Save"),
-        Binding("L", "load", "Load"),
-        Binding("f3", "toggle_debug", "Debug", show=False),
-    ]
-
-    def __init__(self, game: Game | None = None, seed: int | None = None) -> None:
+    def __init__(
+        self,
+        game: Game | None = None,
+        seed: int | None = None,
+        *,
+        show_menu: bool = True,
+    ) -> None:
         super().__init__()
-        self.game = game if game is not None else Game(seed=seed)
-        self._debug_overlay = False
+        self._game = game
+        self._seed = seed
+        self._show_menu = show_menu
 
     def compose(self) -> ComposeResult:
-        yield Header(name="mineshaft")
-        with Horizontal(id="main"):
-            yield Static("", id="map")
-            with Vertical(id="side"):
-                yield Static("", id="sidebar")
-                yield RichLog(id="log", highlight=True, markup=True)
-        yield Footer()
+        yield Static("")
 
     def on_mount(self) -> None:
-        self._log_w = self.query_one(RichLog)
-        for line in self.game.log_lines:
-            self._log_w.write(line)
-        self.refresh_all()
+        if self._show_menu:
+            from mineshaft.ui.menu import MainMenuScreen
 
-    def action_help(self) -> None:
-        self.game.log(
-            "WASD move · Space mine · E interact · C craft list · digits craft · F eat"
-        )
-        self.game.log("Shift+S save · Shift+L load")
-        self._sync_log()
-
-    def _sync_log(self) -> None:
-        log = self.query_one(RichLog)
-        log.clear()
-        for line in self.game.log_lines:
-            log.write(line)
-
-    def _viewport_radii(self) -> tuple[int, int]:
-        try:
-            static = self.query_one("#map", Static)
-            sw, sh = static.size.width, static.size.height
-        except Exception:
-            sw, sh = 21, 21
-        if sw < 3 or sh < 3:
-            sw, sh = 21, 21
-        rw = max(1, min(100, (sw - 1) // 2))
-        rh = max(1, min(50, (sh - 1) // 2))
-        return rw, rh
-
-    def refresh_all(self) -> None:
-        g = self.game
-        mp = self.query_one("#map", Static)
-        side = self.query_one("#sidebar", Static)
-        if g.mode == "overworld":
-            rw, rh = self._viewport_radii()
-            mp.update(render_overworld(g.overworld, g.player, rw, rh))
+            self.push_screen(MainMenuScreen(), callback=self._menu_result)
         else:
-            assert g.mineshaft_run is not None
-            mp.update(render_mineshaft(g.mineshaft_run))
-        side.update(render_sidebar(g, show_debug=self._debug_overlay))
-        self._sync_log()
+            from mineshaft.sim.engine import Game
+            from mineshaft.ui.gameplay import GameplayScreen
 
-    def on_resize(self, event: events.Resize) -> None:
-        self.refresh_all()
+            g = self._game if self._game is not None else Game(seed=self._seed)
+            self.push_screen(GameplayScreen(g))
 
-    def action_toggle_debug(self) -> None:
-        self._debug_overlay = not self._debug_overlay
-        self.refresh_all()
-
-    def _move(self, d: MoveDir) -> None:
-        if self.game.player.hp <= 0:
-            return
-        if self.game.mode == "overworld":
-            self.game.move_overworld(d)
+    def _menu_result(self, result: Game | None) -> None:
+        if result is None:
+            self.exit()
         else:
-            m = {"N": "north", "S": "south", "W": "west", "E": "east"}[d]
-            self.game.mineshaft_go(m)
-        self.refresh_all()
+            from mineshaft.ui.gameplay import GameplayScreen
 
-    def action_mv_n(self) -> None:
-        self._move("N")
-
-    def action_mv_s(self) -> None:
-        self._move("S")
-
-    def action_mv_w(self) -> None:
-        self._move("W")
-
-    def action_mv_e(self) -> None:
-        self._move("E")
-
-    def action_mine(self) -> None:
-        if self.game.player.hp <= 0:
-            return
-        self.game.mine_forward()
-        self.refresh_all()
-
-    def action_interact(self) -> None:
-        if self.game.player.hp <= 0:
-            return
-        self.game.interact()
-        self.refresh_all()
-
-    def action_eat(self) -> None:
-        if self.game.player.hp <= 0:
-            return
-        self.game.eat_if_any()
-        self.refresh_all()
-
-    def action_craft_menu(self) -> None:
-        g = self.game
-        craftable = list_craftable(g.player.inventory)
-        if not craftable:
-            g.log("Nothing craftable right now.")
-            self._sync_log()
-            return
-        g.log("Craftable — press number key 1-9:")
-        for i, (idx, rec) in enumerate(craftable[:9]):
-            needs = ", ".join(f"{item_name(k)} x{v}" for k, v in rec.needs.items())
-            g.log(f"  [{i + 1}] {item_name(rec.produces)} x{rec.count}  <-  {needs}")
-        self._sync_log()
-
-    def on_key(self, event: events.Key) -> None:
-        if event.key in ("1", "2", "3", "4", "5", "6", "7", "8", "9"):
-            craftable = list_craftable(self.game.player.inventory)
-            n = int(event.key)
-            if len(craftable) >= n:
-                recipe_idx = craftable[n - 1][0]
-                self.game.craft_by_index(recipe_idx)
-                self.refresh_all()
-                event.stop()
-
-    def action_save(self) -> None:
-        save_game(DEFAULT_SAVE, self.game)
-        self.game.log(f"Saved to {DEFAULT_SAVE.resolve()}")
-        self._sync_log()
-
-    def action_load(self) -> None:
-        if not DEFAULT_SAVE.is_file():
-            self.game.log("No save file found.")
-            self._sync_log()
-            return
-        self.game = load_game(DEFAULT_SAVE)
-        self.game.log("Loaded save.")
-        self.refresh_all()
-
-
-def run_app(seed: int | None = None, game: Game | None = None) -> None:
-    app = MineshaftApp(seed=seed, game=game)
-    app.run()
+            self.push_screen(GameplayScreen(result))
