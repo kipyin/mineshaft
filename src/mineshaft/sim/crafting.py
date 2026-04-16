@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from mineshaft.domain import items as items_mod
 from mineshaft.domain.inventory import Inventory
-from mineshaft.domain.items import RECIPES, Recipe
+from mineshaft.domain.items import Recipe
 
 
 def can_craft(inv: Inventory, recipe: Recipe) -> bool:
@@ -17,7 +18,7 @@ def try_craft(inv: Inventory, recipe: Recipe) -> bool:
 
 def list_craftable(inv: Inventory) -> list[tuple[int, Recipe]]:
     out: list[tuple[int, Recipe]] = []
-    for i, r in enumerate(RECIPES):
+    for i, r in enumerate(items_mod.RECIPES):
         if can_craft(inv, r):
             out.append((i, r))
     return out

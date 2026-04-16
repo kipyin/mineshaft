@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final
+from pathlib import Path
+
+from mineshaft.domain.item_catalog import (
+    load_catalog_dict,
+    parse_catalog_dict,
+    resolve_catalog_path,
+)
 
 
 class ItemId:
@@ -31,30 +37,6 @@ class ItemId:
     EYE_OF_ENDER = "eye_of_ender"
 
 
-ITEM_DISPLAY: Final[dict[str, str]] = {
-    ItemId.STICK: "Stick",
-    ItemId.PLANK: "Plank",
-    ItemId.COBBLESTONE: "Cobblestone",
-    ItemId.COAL: "Coal",
-    ItemId.IRON_ORE: "Iron Ore",
-    ItemId.WOOD: "Wood",
-    ItemId.RAW_MEAT: "Raw Meat",
-    ItemId.COOKED_MEAT: "Cooked Meat",
-    ItemId.APPLE: "Apple",
-    ItemId.BREAD: "Bread",
-    ItemId.TORCH: "Torch",
-    ItemId.WOODEN_PICKAXE: "Wooden Pickaxe",
-    ItemId.STONE_PICKAXE: "Stone Pickaxe",
-    ItemId.WOODEN_SWORD: "Wooden Sword",
-    ItemId.STONE_SWORD: "Stone Sword",
-    ItemId.FURNACE: "Furnace",
-    ItemId.GOLD_NUGGET: "Gold Nugget",
-    ItemId.BLAZE_POWDER: "Blaze Powder",
-    ItemId.ENDER_PEARL: "Ender Pearl",
-    ItemId.EYE_OF_ENDER: "Eye of Ender",
-}
-
-
 def item_name(item_id: str) -> str:
     return ITEM_DISPLAY.get(item_id, item_id)
 
@@ -66,22 +48,35 @@ class Recipe:
     count: int = 1
 
 
-# Shapeless crafting table recipes
-RECIPES: tuple[Recipe, ...] = (
-    Recipe({ItemId.WOOD: 1}, ItemId.PLANK, 4),
-    Recipe({ItemId.PLANK: 2}, ItemId.STICK, 4),
-    Recipe({ItemId.STICK: 2, ItemId.PLANK: 3}, ItemId.WOODEN_PICKAXE, 1),
-    Recipe({ItemId.STICK: 2, ItemId.COBBLESTONE: 3}, ItemId.STONE_PICKAXE, 1),
-    Recipe({ItemId.STICK: 1, ItemId.PLANK: 2}, ItemId.WOODEN_SWORD, 1),
-    Recipe({ItemId.STICK: 1, ItemId.COBBLESTONE: 2}, ItemId.STONE_SWORD, 1),
-    Recipe({ItemId.COAL: 1, ItemId.STICK: 1}, ItemId.TORCH, 4),
-    Recipe({ItemId.COBBLESTONE: 8}, ItemId.FURNACE, 1),
-    Recipe({ItemId.RAW_MEAT: 1, ItemId.COAL: 1}, ItemId.COOKED_MEAT, 1),
-    Recipe({ItemId.APPLE: 3}, ItemId.BREAD, 1),
-    Recipe({ItemId.COAL: 8, ItemId.IRON_ORE: 1}, ItemId.GOLD_NUGGET, 2),
-    Recipe(
-        {ItemId.BLAZE_POWDER: 1, ItemId.ENDER_PEARL: 1},
-        ItemId.EYE_OF_ENDER,
-        1,
-    ),
-)
+def _recipes_from_rows(
+    rows: list[tuple[dict[str, int], str, int]],
+) -> tuple[Recipe, ...]:
+    return tuple(Recipe(needs, produces, count) for needs, produces, count in rows)
+
+
+def _build_catalog(data: dict) -> tuple[dict[str, str], tuple[Recipe, ...]]:
+    display, rows = parse_catalog_dict(data)
+    return display, _recipes_from_rows(rows)
+
+
+def load_item_catalog(path: Path | None = None) -> tuple[dict[str, str], tuple[Recipe, ...]]:
+    """Load display names and recipes from TOML or YAML.
+
+    ``path`` — explicit file, or ``None`` to use ``MINESHAFT_ITEMS``, then
+    ``./mineshaft_items.{toml,yaml,yml}``, then the bundled default.
+    """
+    if path is not None:
+        data = load_catalog_dict(path)
+    else:
+        resolved = resolve_catalog_path()
+        data = load_catalog_dict(resolved)
+    return _build_catalog(data)
+
+
+ITEM_DISPLAY, RECIPES = load_item_catalog()
+
+
+def reload_item_catalog(path: Path | None = None) -> None:
+    """Replace ``ITEM_DISPLAY`` and ``RECIPES`` (e.g. for modding or tests)."""
+    global ITEM_DISPLAY, RECIPES
+    ITEM_DISPLAY, RECIPES = load_item_catalog(path)

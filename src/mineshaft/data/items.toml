@@ -1,0 +1,85 @@
+# Default item display names and shapeless crafting recipes.
+# Override: place mineshaft_items.toml or mineshaft_items.yaml in the working directory,
+# or set MINESHAFT_ITEMS to a file path.
+
+[display_names]
+stick = "Stick"
+plank = "Plank"
+cobblestone = "Cobblestone"
+coal = "Coal"
+iron_ore = "Iron Ore"
+wood = "Wood"
+raw_meat = "Raw Meat"
+cooked_meat = "Cooked Meat"
+apple = "Apple"
+bread = "Bread"
+torch = "Torch"
+wooden_pickaxe = "Wooden Pickaxe"
+stone_pickaxe = "Stone Pickaxe"
+wooden_sword = "Wooden Sword"
+stone_sword = "Stone Sword"
+furnace = "Furnace"
+gold_nugget = "Gold Nugget"
+blaze_powder = "Blaze Powder"
+ender_pearl = "Ender Pearl"
+eye_of_ender = "Eye of Ender"
+
+[[recipes]]
+produces = "plank"
+count = 4
+needs = { wood = 1 }
+
+[[recipes]]
+produces = "stick"
+count = 4
+needs = { plank = 2 }
+
+[[recipes]]
+produces = "wooden_pickaxe"
+count = 1
+needs = { stick = 2, plank = 3 }
+
+[[recipes]]
+produces = "stone_pickaxe"
+count = 1
+needs = { stick = 2, cobblestone = 3 }
+
+[[recipes]]
+produces = "wooden_sword"
+count = 1
+needs = { stick = 1, plank = 2 }
+
+[[recipes]]
+produces = "stone_sword"
+count = 1
+needs = { stick = 1, cobblestone = 2 }
+
+[[recipes]]
+produces = "torch"
+count = 4
+needs = { coal = 1, stick = 1 }
+
+[[recipes]]
+produces = "furnace"
+count = 1
+needs = { cobblestone = 8 }
+
+[[recipes]]
+produces = "cooked_meat"
+count = 1
+needs = { raw_meat = 1, coal = 1 }
+
+[[recipes]]
+produces = "bread"
+count = 1
+needs = { apple = 3 }
+
+[[recipes]]
+produces = "gold_nugget"
+count = 2
+needs = { coal = 8, iron_ore = 1 }
+
+[[recipes]]
+produces = "eye_of_ender"
+count = 1
+needs = { blaze_powder = 1, ender_pearl = 1 }

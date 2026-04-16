@@ -4,6 +4,7 @@ import random
 from typing import Literal
 
 from mineshaft.config import load_settings
+from mineshaft.domain import items as items_mod
 from mineshaft.domain.dimension import Dimension
 from mineshaft.domain.direction import Direction
 from mineshaft.domain.end_run import EndRun
@@ -508,11 +509,9 @@ class Game:
                 self.respawn()
 
     def craft_by_index(self, idx: int) -> bool:
-        from mineshaft.domain.items import RECIPES
-
-        if idx < 0 or idx >= len(RECIPES):
+        if idx < 0 or idx >= len(items_mod.RECIPES):
             return False
-        r = RECIPES[idx]
+        r = items_mod.RECIPES[idx]
         if try_craft(self.player.inventory, r):
             self.log(f"Crafted {r.produces} x{r.count}.")
             return True
