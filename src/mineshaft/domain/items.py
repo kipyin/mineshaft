@@ -26,6 +26,9 @@ class ItemId:
 
     FURNACE = "furnace"
     GOLD_NUGGET = "gold_nugget"
+    BLAZE_POWDER = "blaze_powder"
+    ENDER_PEARL = "ender_pearl"
+    EYE_OF_ENDER = "eye_of_ender"
 
 
 ITEM_DISPLAY: Final[dict[str, str]] = {
@@ -46,6 +49,9 @@ ITEM_DISPLAY: Final[dict[str, str]] = {
     ItemId.STONE_SWORD: "Stone Sword",
     ItemId.FURNACE: "Furnace",
     ItemId.GOLD_NUGGET: "Gold Nugget",
+    ItemId.BLAZE_POWDER: "Blaze Powder",
+    ItemId.ENDER_PEARL: "Ender Pearl",
+    ItemId.EYE_OF_ENDER: "Eye of Ender",
 }
 
 
@@ -73,4 +79,9 @@ RECIPES: tuple[Recipe, ...] = (
     Recipe({ItemId.RAW_MEAT: 1, ItemId.COAL: 1}, ItemId.COOKED_MEAT, 1),
     Recipe({ItemId.APPLE: 3}, ItemId.BREAD, 1),
     Recipe({ItemId.COAL: 8, ItemId.IRON_ORE: 1}, ItemId.GOLD_NUGGET, 2),
+    Recipe(
+        {ItemId.BLAZE_POWDER: 1, ItemId.ENDER_PEARL: 1},
+        ItemId.EYE_OF_ENDER,
+        1,
+    ),
 )

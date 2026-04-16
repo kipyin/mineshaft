@@ -8,6 +8,8 @@ class BiomeKind(Enum):
     FOREST = "forest"
     DESERT = "desert"
     MOUNTAINS = "mountains"
+    NETHER = "nether"
+    END = "end"
 
 
 class TileKind(Enum):
@@ -21,6 +23,12 @@ class TileKind(Enum):
     IRON_ORE = "iron_ore"
     CAVE_ENTRANCE = "cave_entrance"
     BEDROCK = "bedrock"
+    NETHER_PORTAL = "nether_portal"
+    NETHERRACK = "netherrack"
+    SOUL_SAND = "soul_sand"
+    NETHER_LAVA = "nether_lava"
+    END_GATE = "end_gate"
+    END_STONE = "end_stone"
 
 
 class Tile:
@@ -30,12 +38,19 @@ class Tile:
         self.kind = kind
 
     def blocks_movement(self) -> bool:
-        return self.kind in (TileKind.WATER, TileKind.TREE, TileKind.BEDROCK)
+        return self.kind in (
+            TileKind.WATER,
+            TileKind.TREE,
+            TileKind.BEDROCK,
+            TileKind.NETHER_LAVA,
+        )
 
     def mineable(self) -> bool:
         return self.kind not in (
             TileKind.WATER,
             TileKind.BEDROCK,
-            TileKind.GRASS,
             TileKind.CAVE_ENTRANCE,
+            TileKind.NETHER_PORTAL,
+            TileKind.NETHER_LAVA,
+            TileKind.END_GATE,
         )

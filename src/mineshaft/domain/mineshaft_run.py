@@ -17,6 +17,8 @@ class MineshaftRoom:
     loot_taken: bool = False
     is_entrance: bool = False
     exit_to_overworld: bool = False
+    # Escape shaft: can open End portal with enough Eye of Ender (see engine).
+    exit_to_end_portal: bool = False
 
 
 @dataclass
