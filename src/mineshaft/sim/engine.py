@@ -12,7 +12,8 @@ from mineshaft.domain.end_run import EndRun
 from mineshaft.domain.items import ItemId
 from mineshaft.domain.mc_game_mode import MCGameMode
 from mineshaft.domain.mineshaft_run import MineshaftRun
-from mineshaft.domain.overworld import Overworld, OverworldMob
+from mineshaft.domain.mob_catalog import apply_mob_drops, instantiate_mob, mob_definition
+from mineshaft.domain.overworld import Overworld
 from mineshaft.domain.player import Player
 from mineshaft.domain.pos import Pos
 from mineshaft.domain.tiles import BiomeKind, TileKind
@@ -21,7 +22,6 @@ from mineshaft.gen.mineshaft_gen import generate_mineshaft
 from mineshaft.gen.nether_gen import generate_nether_world
 from mineshaft.gen.overworld_gen import generate_overworld
 from mineshaft.sim.combat import (
-    DRAGON_MAX_HP,
     nether_player_damage,
     resolve_end_dragon_exchange,
     resolve_overworld_melee,
@@ -260,9 +260,10 @@ class Game:
                 return
             del world.mobs[key]
             self.log(f"Defeated {mob.kind}.")
-            if self.dimension == "nether" and self.rng.random() < 0.45:
-                self.player.inventory.add(ItemId.BLAZE_POWDER, 1)
-                self.log("Dropped blaze powder.")
+            md = mob_definition(mob.kind, mob_catalog_mod.MOBS.definitions)
+            if md:
+                for item_id, n in apply_mob_drops(self.rng, self.player.inventory, md):
+                    self.log(f"+{n} {item_id}")
             if self.player.hp <= 0:
                 self.log("You fall in battle.")
                 self.respawn()
@@ -308,9 +309,7 @@ class Game:
         spot = self.rng.choice(candidates)
         key = (spot.x, spot.y)
         kind = self.rng.choice(enc.kinds)
-        hp = self.rng.randint(enc.hp_min, enc.hp_max)
-        atk = self.rng.randint(enc.atk_min, enc.atk_max)
-        self.overworld.mobs[key] = OverworldMob(kind=kind, hp=hp, max_hp=hp, atk=atk)
+        self.overworld.mobs[key] = instantiate_mob(kind, mob_catalog_mod.MOBS.definitions)
         self.log(f"A {kind} appears nearby!")
 
     def mine_forward(self) -> None:
@@ -392,9 +391,10 @@ class Game:
             self.end_entry_spawn = espawn
         assert self.end_dragon_pos is not None
         assert self.end_entry_spawn is not None
+        dhp = mob_catalog_mod.MOBS.boss_ender_dragon_hp
         self.end_run = EndRun(
-            dragon_hp=DRAGON_MAX_HP,
-            dragon_max_hp=DRAGON_MAX_HP,
+            dragon_hp=dhp,
+            dragon_max_hp=dhp,
             phase=0,
         )
         self.dimension = "end"
@@ -496,15 +496,21 @@ class Game:
                 )
                 if room.mob_hp <= 0:
                     self.log("Enemy defeated.")
-                    if self.rng.random() < 0.5:
-                        self.player.inventory.add(ItemId.BLAZE_POWDER, 1)
-                        self.log("Dropped blaze powder.")
+                    mk = room.mob_kind
+                    if mk:
+                        md = mob_definition(mk, mob_catalog_mod.MOBS.definitions)
+                        if md:
+                            for item_id, n in apply_mob_drops(
+                                self.rng, self.player.inventory, md
+                            ):
+                                self.log(f"+{n} {item_id}")
                     if room.loot_id and not room.loot_taken:
                         self.player.inventory.add(room.loot_id, 1)
                         self.log(f"Found {room.loot_id}.")
                         room.loot_taken = True
                     break
-                self.player.hp -= room.mob_atk + self.rng.randint(0, 1)
+                if room.mob_atk > 0:
+                    self.player.hp -= room.mob_atk + self.rng.randint(0, 1)
                 self.log(f"You are hit (HP {self.player.hp}).")
             if self.player.hp <= 0:
                 self.log("You collapse in the dark.")

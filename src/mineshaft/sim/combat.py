@@ -28,7 +28,8 @@ def resolve_overworld_melee(
         cur_m -= melee_damage(inv) + rng.randint(0, 2)
         if cur_m <= 0:
             return cur_p, 0, True
-        cur_p -= mob_atk + rng.randint(0, 1)
+        if mob_atk > 0:
+            cur_p -= mob_atk + rng.randint(0, 1)
     return max(0, cur_p), max(0, cur_m), cur_m <= 0
 
 
@@ -38,10 +39,6 @@ def nether_player_damage(inv: Inventory) -> int:
 
 # Backward-compatible name (nether uses former mineshaft room combat).
 mineshaft_player_damage = nether_player_damage
-
-
-# End dragon: tunable for MVP — ~12–16 Space strikes with stone sword at full HP.
-DRAGON_MAX_HP = 64
 
 
 def resolve_end_dragon_exchange(

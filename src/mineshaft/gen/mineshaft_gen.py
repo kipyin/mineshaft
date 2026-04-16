@@ -57,10 +57,11 @@ def generate_mineshaft(
         if not is_entrance:
             if rng.random() < 0.68:
                 mob_kind = rng.choice(mob_catalog_mod.MOBS.mineshaft_pool)
+                dfn = mob_catalog_mod.MOBS.definitions[mob_kind]
                 scale = 1 + tier + min(depth // 4, 5)
-                mob_max = rng.randint(5, 10) + scale
+                mob_max = dfn.hp + scale
                 mob_hp = mob_max
-                mob_atk = rng.randint(1, 4) + tier
+                mob_atk = (0 if not dfn.hostile else dfn.atk + tier)
 
         if mob_kind is None and not is_entrance and rng.random() < 0.38:
             loot = rng.choice(

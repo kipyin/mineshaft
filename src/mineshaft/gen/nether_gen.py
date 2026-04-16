@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 
 from mineshaft.domain import mob_catalog as mob_catalog_mod
+from mineshaft.domain.mob_catalog import instantiate_mob
 from mineshaft.domain.overworld import Overworld, OverworldMob
 from mineshaft.domain.pos import Pos
 from mineshaft.domain.tiles import BiomeKind, Tile, TileKind
@@ -71,9 +72,7 @@ def generate_nether_world(
         if rng.random() > sp.chance:
             continue
         kind = rng.choice(sp.kinds)
-        hp = rng.randint(sp.hp_min, sp.hp_max)
-        atk = rng.randint(sp.atk_min, sp.atk_max)
-        mobs[(x, y)] = OverworldMob(kind=kind, hp=hp, max_hp=hp, atk=atk)
+        mobs[(x, y)] = instantiate_mob(kind, mob_catalog_mod.MOBS.definitions)
 
     ow = Overworld(
         width=width,

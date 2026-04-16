@@ -4,6 +4,7 @@ import random
 import uuid
 
 from mineshaft.domain import mob_catalog as mob_catalog_mod
+from mineshaft.domain.mob_catalog import MobSpawnLoop, instantiate_mob
 from mineshaft.domain.overworld import Overworld, OverworldMob
 from mineshaft.domain.pos import Pos
 from mineshaft.domain.tiles import BiomeKind, Tile, TileKind
@@ -128,26 +129,28 @@ def generate_overworld(
             px, py = x, y
             break
 
-    # Sparse overworld hostiles in forests at night-equivalent: random mobs
-    sp = mob_catalog_mod.MOBS.overworld_static
-    for _ in range(sp.attempts):
-        x = rng.randrange(2, width - 2)
-        y = rng.randrange(2, height - 2)
-        if (x, y) == (px, py):
-            continue
-        if cave_to_mineshaft_id.get((x, y)):
-            continue
-        if tiles[y][x].blocks_movement():
-            continue
-        if biome[y][x] is not BiomeKind.FOREST:
-            continue
-        if rng.random() > sp.chance:
-            continue
-        kind = rng.choice(sp.kinds)
-        hp = rng.randint(sp.hp_min, sp.hp_max)
-        atk = rng.randint(sp.atk_min, sp.atk_max)
-        if (x, y) not in mobs and (x, y) not in cave_to_mineshaft_id:
-            mobs[(x, y)] = OverworldMob(kind=kind, hp=hp, max_hp=hp, atk=atk)
+    defs = mob_catalog_mod.MOBS.definitions
+
+    def _try_place_static(sp: MobSpawnLoop, want_biome: BiomeKind) -> None:
+        for _ in range(sp.attempts):
+            x = rng.randrange(2, width - 2)
+            y = rng.randrange(2, height - 2)
+            if (x, y) == (px, py):
+                continue
+            if cave_to_mineshaft_id.get((x, y)):
+                continue
+            if tiles[y][x].blocks_movement():
+                continue
+            if biome[y][x] is not want_biome:
+                continue
+            if rng.random() > sp.chance:
+                continue
+            kind = rng.choice(sp.kinds)
+            if (x, y) not in mobs and (x, y) not in cave_to_mineshaft_id:
+                mobs[(x, y)] = instantiate_mob(kind, defs)
+
+    _try_place_static(mob_catalog_mod.MOBS.overworld_static_forest, BiomeKind.FOREST)
+    _try_place_static(mob_catalog_mod.MOBS.overworld_static_plains, BiomeKind.PLAINS)
 
     ow = Overworld(
         width=width,
