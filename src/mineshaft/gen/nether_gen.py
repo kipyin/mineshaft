@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 
+from mineshaft.domain.mob_catalog import MOBS
 from mineshaft.domain.overworld import Overworld, OverworldMob
 from mineshaft.domain.pos import Pos
 from mineshaft.domain.tiles import BiomeKind, Tile, TileKind
@@ -57,7 +58,8 @@ def generate_nether_world(
                 break
 
     mobs: dict[tuple[int, int], OverworldMob] = {}
-    for _ in range(18):
+    sp = MOBS.nether_static
+    for _ in range(sp.attempts):
         x = rng.randrange(2, width - 2)
         y = rng.randrange(2, height - 2)
         if (x, y) == (px, py):
@@ -66,11 +68,11 @@ def generate_nether_world(
             continue
         if tiles[y][x].blocks_movement():
             continue
-        if rng.random() > 0.4:
+        if rng.random() > sp.chance:
             continue
-        kind = rng.choice(["piglin", "blaze", "magma"])
-        hp = rng.randint(5, 12)
-        atk = rng.randint(2, 5)
+        kind = rng.choice(sp.kinds)
+        hp = rng.randint(sp.hp_min, sp.hp_max)
+        atk = rng.randint(sp.atk_min, sp.atk_max)
         mobs[(x, y)] = OverworldMob(kind=kind, hp=hp, max_hp=hp, atk=atk)
 
     ow = Overworld(

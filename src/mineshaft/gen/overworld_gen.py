@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 import uuid
 
+from mineshaft.domain.mob_catalog import MOBS
 from mineshaft.domain.overworld import Overworld, OverworldMob
 from mineshaft.domain.pos import Pos
 from mineshaft.domain.tiles import BiomeKind, Tile, TileKind
@@ -128,7 +129,8 @@ def generate_overworld(
             break
 
     # Sparse overworld hostiles in forests at night-equivalent: random mobs
-    for _ in range(12):
+    sp = MOBS.overworld_static
+    for _ in range(sp.attempts):
         x = rng.randrange(2, width - 2)
         y = rng.randrange(2, height - 2)
         if (x, y) == (px, py):
@@ -139,11 +141,11 @@ def generate_overworld(
             continue
         if biome[y][x] is not BiomeKind.FOREST:
             continue
-        if rng.random() > 0.35:
+        if rng.random() > sp.chance:
             continue
-        kind = rng.choice(["crawler", "stray", "boar"])
-        hp = rng.randint(4, 9)
-        atk = rng.randint(1, 3)
+        kind = rng.choice(sp.kinds)
+        hp = rng.randint(sp.hp_min, sp.hp_max)
+        atk = rng.randint(sp.atk_min, sp.atk_max)
         if (x, y) not in mobs and (x, y) not in cave_to_mineshaft_id:
             mobs[(x, y)] = OverworldMob(kind=kind, hp=hp, max_hp=hp, atk=atk)
 

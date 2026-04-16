@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from enum import Enum
 
+from mineshaft.domain.tile_catalog import BLOCKS_MOVEMENT, NOT_MINEABLE
+
 
 class BiomeKind(Enum):
     PLAINS = "plains"
@@ -38,19 +40,7 @@ class Tile:
         self.kind = kind
 
     def blocks_movement(self) -> bool:
-        return self.kind in (
-            TileKind.WATER,
-            TileKind.TREE,
-            TileKind.BEDROCK,
-            TileKind.NETHER_LAVA,
-        )
+        return self.kind.value in BLOCKS_MOVEMENT
 
     def mineable(self) -> bool:
-        return self.kind not in (
-            TileKind.WATER,
-            TileKind.BEDROCK,
-            TileKind.CAVE_ENTRANCE,
-            TileKind.NETHER_PORTAL,
-            TileKind.NETHER_LAVA,
-            TileKind.END_GATE,
-        )
+        return self.kind.value not in NOT_MINEABLE

@@ -11,48 +11,14 @@ from mineshaft.domain.mineshaft_run import MineshaftRun
 from mineshaft.domain.overworld import Overworld
 from mineshaft.domain.player import Player
 from mineshaft.domain.pos import Pos
+from mineshaft.domain.tile_catalog import tile_char, tile_style
 from mineshaft.domain.tiles import TileKind
 
 MC_DAY_TICKS = 24000
 
-# Foreground + background so tiles stay distinct even when terminal mutes "on *" alone
-_TERRAIN = {
-    TileKind.GRASS: Style.parse("bold green on dark_green"),
-    TileKind.DIRT: Style.parse("yellow3 on yellow4"),
-    TileKind.STONE: Style.parse("white on bright_black"),
-    TileKind.SAND: Style.parse("bold yellow on yellow"),
-    TileKind.WATER: Style.parse("bold cyan on blue"),
-    TileKind.BEDROCK: Style.parse("white on black"),
-    TileKind.NETHER_PORTAL: Style.parse("bold bright_magenta on purple"),
-    TileKind.NETHERRACK: Style.parse("bold bright_red on black"),
-    TileKind.SOUL_SAND: Style.parse("bold yellow3 on yellow4"),
-    TileKind.NETHER_LAVA: Style.parse("bold white on red"),
-    TileKind.END_GATE: Style.parse("bold white on black"),
-    TileKind.END_STONE: Style.parse("bold white on bright_black"),
-}
-_TERRAIN_CHAR = {
-    TileKind.GRASS: "█",
-    TileKind.DIRT: "█",
-    TileKind.STONE: "█",
-    TileKind.SAND: "░",
-    TileKind.WATER: "~",
-    TileKind.BEDROCK: "█",
-    TileKind.NETHER_PORTAL: "█",
-    TileKind.NETHERRACK: "▓",
-    TileKind.SOUL_SAND: "▒",
-    TileKind.NETHER_LAVA: "~",
-    TileKind.END_GATE: "⊕",
-    TileKind.END_STONE: "█",
-}
-
-_ORE_COAL = Style.parse("white on bright_black")
-_ORE_IRON = Style.parse("bright_yellow on bright_black")
-
 _PLAYER = Style.parse("bold black on bright_yellow")
 _OOB = Style.parse("on black")
 _MOB = Style.parse("bold bright_red on dark_red")
-_CAVE = Style.parse("bold bright_black on magenta")
-_TREE = Style.parse("bold green on dark_green")
 _DRAGON = Style.parse("bold magenta on bright_black")
 _FORWARD_HI = Style.parse("reverse bold")
 
@@ -229,27 +195,30 @@ def _overworld_cell(
 
     # Cave entrance — distinct marker
     if tg is TileKind.CAVE_ENTRANCE:
-        return "⛏", _with_forward_highlight(_CAVE, is_forward_cell)
+        return tile_char(tg.value), _with_forward_highlight(tile_style(tg.value), is_forward_cell)
     if tg is TileKind.NETHER_PORTAL:
-        return "P", _with_forward_highlight(_TERRAIN[TileKind.NETHER_PORTAL], is_forward_cell)
+        return tile_char(tg.value), _with_forward_highlight(
+            tile_style(tg.value), is_forward_cell
+        )
     if tg is TileKind.END_GATE:
-        return "E", _with_forward_highlight(_TERRAIN[TileKind.END_GATE], is_forward_cell)
+        return tile_char(tg.value), _with_forward_highlight(tile_style(tg.value), is_forward_cell)
 
     # Trees — stand out on grass
     if tg is TileKind.TREE:
-        return "♣", _with_forward_highlight(_TREE, is_forward_cell)
+        return tile_char(tg.value), _with_forward_highlight(tile_style(tg.value), is_forward_cell)
 
     # Ores on stone background
     if tg is TileKind.COAL_ORE:
-        st = _with_forward_highlight(_ORE_COAL, is_forward_cell)
-        return "C", st
+        st = _with_forward_highlight(tile_style(tg.value), is_forward_cell)
+        return tile_char(tg.value), st
     if tg is TileKind.IRON_ORE:
-        st = _with_forward_highlight(_ORE_IRON, is_forward_cell)
-        return "I", st
+        st = _with_forward_highlight(tile_style(tg.value), is_forward_cell)
+        return tile_char(tg.value), st
 
     # Plain terrain block (per-kind char + fg/bg for visibility)
-    char = _TERRAIN_CHAR.get(tg, "█")
-    base = _TERRAIN.get(tg, Style.parse("white on bright_black"))
+    tid = tg.value
+    char = tile_char(tid)
+    base = tile_style(tid)
     st = _with_forward_highlight(base, is_forward_cell)
     return char, st
 

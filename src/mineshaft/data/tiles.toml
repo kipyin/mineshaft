@@ -1,0 +1,77 @@
+# Tile movement/mining rules and Rich render hints (glyph + style string).
+# Override: MINESHAFT_TILES or ./mineshaft_tiles.toml
+
+[rules]
+blocks_movement = ["water", "tree", "bedrock", "nether_lava"]
+not_mineable = [
+    "water",
+    "bedrock",
+    "cave_entrance",
+    "nether_portal",
+    "nether_lava",
+    "end_gate",
+]
+
+[tile_render.grass]
+char = "█"
+style = "bold green on dark_green"
+
+[tile_render.dirt]
+char = "█"
+style = "yellow3 on yellow4"
+
+[tile_render.stone]
+char = "█"
+style = "white on bright_black"
+
+[tile_render.sand]
+char = "░"
+style = "bold yellow on yellow"
+
+[tile_render.water]
+char = "~"
+style = "bold cyan on blue"
+
+[tile_render.tree]
+char = "♣"
+style = "bold green on dark_green"
+
+[tile_render.coal_ore]
+char = "C"
+style = "white on bright_black"
+
+[tile_render.iron_ore]
+char = "I"
+style = "bright_yellow on bright_black"
+
+[tile_render.cave_entrance]
+char = "⛏"
+style = "bold bright_black on magenta"
+
+[tile_render.bedrock]
+char = "█"
+style = "white on black"
+
+[tile_render.nether_portal]
+char = "P"
+style = "bold bright_magenta on purple"
+
+[tile_render.netherrack]
+char = "▓"
+style = "bold bright_red on black"
+
+[tile_render.soul_sand]
+char = "▒"
+style = "bold yellow3 on yellow4"
+
+[tile_render.nether_lava]
+char = "~"
+style = "bold white on red"
+
+[tile_render.end_gate]
+char = "E"
+style = "bold white on black"
+
+[tile_render.end_stone]
+char = "█"
+style = "bold white on bright_black"

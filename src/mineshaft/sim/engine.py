@@ -11,6 +11,7 @@ from mineshaft.domain.end_run import EndRun
 from mineshaft.domain.items import ItemId
 from mineshaft.domain.mc_game_mode import MCGameMode
 from mineshaft.domain.mineshaft_run import MineshaftRun
+from mineshaft.domain.mob_catalog import MOBS
 from mineshaft.domain.overworld import Overworld, OverworldMob
 from mineshaft.domain.player import Player
 from mineshaft.domain.pos import Pos
@@ -288,7 +289,8 @@ class Game:
         p = self.player.pos
         if self.overworld.biome_at(p) is not BiomeKind.FOREST:
             return
-        if self.rng.random() > 0.055:
+        enc = MOBS.overworld_encounter
+        if self.rng.random() > enc.chance:
             return
         candidates: list[Pos] = []
         for dx, dy in ((0, 1), (0, -1), (1, 0), (-1, 0)):
@@ -305,9 +307,9 @@ class Game:
             return
         spot = self.rng.choice(candidates)
         key = (spot.x, spot.y)
-        kind = self.rng.choice(["crawler", "stray"])
-        hp = self.rng.randint(3, 7)
-        atk = self.rng.randint(1, 3)
+        kind = self.rng.choice(enc.kinds)
+        hp = self.rng.randint(enc.hp_min, enc.hp_max)
+        atk = self.rng.randint(enc.atk_min, enc.atk_max)
         self.overworld.mobs[key] = OverworldMob(kind=kind, hp=hp, max_hp=hp, atk=atk)
         self.log(f"A {kind} appears nearby!")
 

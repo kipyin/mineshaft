@@ -4,6 +4,7 @@ import random
 
 from mineshaft.domain.items import ItemId
 from mineshaft.domain.mineshaft_run import MineshaftRoom, MineshaftRun
+from mineshaft.domain.mob_catalog import MOBS
 
 
 def generate_mineshaft(
@@ -55,7 +56,7 @@ def generate_mineshaft(
 
         if not is_entrance:
             if rng.random() < 0.68:
-                mob_kind = rng.choice(["cave_spider", "cave_skeleton", "cave_slime"])
+                mob_kind = rng.choice(MOBS.mineshaft_pool)
                 scale = 1 + tier + min(depth // 4, 5)
                 mob_max = rng.randint(5, 10) + scale
                 mob_hp = mob_max

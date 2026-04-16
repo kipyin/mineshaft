@@ -1,0 +1,31 @@
+# Mob spawn pools and numeric ranges for procedural placement.
+# Override: MINESHAFT_MOBS or ./mineshaft_mobs.toml
+
+[overworld.static_spawns]
+attempts = 12
+chance = 0.35
+kinds = ["crawler", "stray", "boar"]
+hp_min = 4
+hp_max = 9
+atk_min = 1
+atk_max = 3
+
+[overworld.random_encounter]
+chance = 0.055
+kinds = ["crawler", "stray"]
+hp_min = 3
+hp_max = 7
+atk_min = 1
+atk_max = 3
+
+[nether.static_spawns]
+attempts = 18
+chance = 0.4
+kinds = ["piglin", "blaze", "magma"]
+hp_min = 5
+hp_max = 12
+atk_min = 2
+atk_max = 5
+
+[mineshaft]
+room_mob_pool = ["cave_spider", "cave_skeleton", "cave_slime"]
