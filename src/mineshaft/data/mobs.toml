@@ -1,31 +1,119 @@
-# Mob spawn pools and numeric ranges for procedural placement.
+# Mob definitions (fixed HP/ATK, drops) and spawn pools.
 # Override: MINESHAFT_MOBS or ./mineshaft_mobs.toml
 
-[overworld.static_spawns]
+[boss.ender_dragon]
+hp = 200
+
+# --- Mob stats: MC-inspired; drops use existing item ids ---
+
+[definitions.zombie]
+hp = 20
+atk = 3
+hostile = true
+
+[[definitions.zombie.drops]]
+item = "raw_meat"
+chance = 0.5
+count = 1
+
+[definitions.creeper]
+hp = 20
+atk = 3
+hostile = true
+
+[[definitions.creeper.drops]]
+item = "coal"
+chance = 0.3
+count = 1
+
+[definitions.skeleton]
+hp = 20
+atk = 3
+hostile = true
+
+[[definitions.skeleton.drops]]
+item = "coal"
+chance = 0.4
+count = 1
+
+[definitions.enderman]
+hp = 40
+atk = 7
+hostile = true
+
+[[definitions.enderman.drops]]
+item = "ender_pearl"
+chance = 0.5
+count = 1
+
+[definitions.blaze]
+hp = 20
+atk = 6
+hostile = true
+
+[[definitions.blaze.drops]]
+item = "blaze_powder"
+chance = 1.0
+count = 1
+
+[definitions.piglin]
+hp = 16
+atk = 5
+hostile = true
+
+[[definitions.piglin.drops]]
+item = "gold_nugget"
+chance = 0.5
+count = 1
+
+[definitions.pig]
+hp = 10
+atk = 0
+hostile = false
+
+[[definitions.pig.drops]]
+item = "raw_meat"
+chance = 1.0
+count = 1
+
+[definitions.sheep]
+hp = 8
+atk = 0
+hostile = false
+
+[[definitions.sheep.drops]]
+item = "raw_meat"
+chance = 0.7
+count = 1
+
+[definitions.chicken]
+hp = 4
+atk = 0
+hostile = false
+
+[[definitions.chicken.drops]]
+item = "raw_meat"
+chance = 1.0
+count = 1
+
+[overworld.static_spawns_forest]
 attempts = 12
 chance = 0.35
-kinds = ["crawler", "stray", "boar"]
-hp_min = 4
-hp_max = 9
-atk_min = 1
-atk_max = 3
+kinds = ["zombie", "skeleton", "creeper", "enderman"]
+
+[overworld.static_spawns_plains]
+attempts = 10
+chance = 0.28
+kinds = ["pig", "sheep", "chicken"]
 
 [overworld.random_encounter]
 chance = 0.055
-kinds = ["crawler", "stray"]
-hp_min = 3
-hp_max = 7
-atk_min = 1
-atk_max = 3
+kinds = ["zombie", "skeleton", "creeper", "enderman"]
 
 [nether.static_spawns]
 attempts = 18
 chance = 0.4
-kinds = ["piglin", "blaze", "magma"]
-hp_min = 5
-hp_max = 12
-atk_min = 2
-atk_max = 5
+kinds = ["piglin", "blaze"]
 
 [mineshaft]
-room_mob_pool = ["cave_spider", "cave_skeleton", "cave_slime"]
+room_mob_pool = ["skeleton", "zombie", "creeper"]
