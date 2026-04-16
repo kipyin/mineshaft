@@ -70,6 +70,7 @@ def generate_mineshaft(
                     ItemId.RAW_MEAT,
                     ItemId.TORCH,
                     ItemId.GOLD_NUGGET,
+                    ItemId.ENDER_PEARL,
                 ]
             )
 
@@ -94,6 +95,7 @@ def generate_mineshaft(
             loot_taken=False,
             is_entrance=is_entrance,
             exit_to_overworld=exit_world,
+            exit_to_end_portal=False,
         )
 
     return MineshaftRun(

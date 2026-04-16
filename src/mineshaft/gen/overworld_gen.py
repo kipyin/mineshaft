@@ -4,6 +4,7 @@ import random
 import uuid
 
 from mineshaft.domain.overworld import Overworld, OverworldMob
+from mineshaft.domain.pos import Pos
 from mineshaft.domain.tiles import BiomeKind, Tile, TileKind
 from mineshaft.gen.noise import fbm2, unit_float
 
@@ -105,7 +106,10 @@ def generate_overworld(
         ok = True
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
-                if tiles[cy + dy][cx + dx].kind == TileKind.CAVE_ENTRANCE:
+                if tiles[cy + dy][cx + dx].kind in (
+                    TileKind.CAVE_ENTRANCE,
+                    TileKind.NETHER_PORTAL,
+                ):
                     ok = False
         if not ok:
             continue
@@ -151,4 +155,25 @@ def generate_overworld(
         cave_to_mineshaft_id=cave_to_mineshaft_id,
         mobs=mobs,
     )
+    _place_nether_portal(rng, ow, px, py)
     return ow, (px, py)
+
+
+def _place_nether_portal(rng: random.Random, ow: Overworld, spawn_x: int, spawn_y: int) -> None:
+    """One Nether portal tile on the Overworld (top-down), away from spawn."""
+    w, h = ow.width, ow.height
+    candidates: list[tuple[int, int]] = []
+    for y in range(2, h - 2):
+        for x in range(2, w - 2):
+            if abs(x - spawn_x) + abs(y - spawn_y) < 10:
+                continue
+            if (x, y) in ow.cave_to_mineshaft_id:
+                continue
+            t = ow.tile_at(Pos(x, y))
+            if t.kind in (TileKind.GRASS, TileKind.DIRT) and not t.blocks_movement():
+                candidates.append((x, y))
+    rng.shuffle(candidates)
+    if not candidates:
+        return
+    px, py = candidates[0]
+    ow.set_tile(Pos(px, py), Tile(TileKind.NETHER_PORTAL))
