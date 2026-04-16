@@ -24,6 +24,12 @@ def test_iron_requires_stone_pick() -> None:
     assert can_mine_tile(inv, TileKind.IRON_ORE) is True
 
 
+def test_grass_is_mineable_for_apples() -> None:
+    inv = Inventory()
+    assert can_mine_tile(inv, TileKind.GRASS) is True
+    assert Tile(TileKind.GRASS).mineable() is True
+
+
 def test_mine_stone_drops_cobble() -> None:
     inv = Inventory({ItemId.WOODEN_PICKAXE: 1})
     rng = random.Random(1)

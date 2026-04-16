@@ -16,24 +16,28 @@ def test_save_roundtrip(tmp_path: Path) -> None:
     g2 = load_game(p)
     assert g2.seed == g1.seed
     assert g2.player.inventory.count("stick") == 3
-    assert g2.mode == g1.mode
+    assert g2.dimension == g1.dimension
+    assert g2.mc_game_mode == g1.mc_game_mode
     assert g2.world_time_ticks == 12345
     assert g2.spawn_pos.x == g1.spawn_pos.x and g2.spawn_pos.y == g1.spawn_pos.y
 
 
-def test_new_save_uses_mineshaft_keys(tmp_path: Path) -> None:
+def test_new_save_schema_and_keys(tmp_path: Path) -> None:
     g = Game(seed=7)
     p = tmp_path / "out.json"
     save_game(p, g)
     raw = json.loads(p.read_text())
-    assert raw["mode"] in ("overworld", "mineshaft")
-    assert raw["schema_version"] == 2
+    assert raw["dimension"] in ("overworld", "dungeon", "nether", "end")
+    assert raw["mc_game_mode"] in ("survival", "creative", "adventure", "spectator")
+    assert raw["schema_version"] == 4
     assert "spawn_pos" in raw
     assert "mineshaft_runs" in raw
     assert "active_mineshaft_id" in raw
     assert "cave_to_mineshaft_id" in raw["overworld"]
     for run in raw["mineshaft_runs"].values():
         assert "mineshaft_id" in run
+    assert "victory" in raw
+    assert "end_run" in raw
 
 
 def test_legacy_dungeon_named_keys_still_load(tmp_path: Path) -> None:
@@ -54,7 +58,7 @@ def test_legacy_dungeon_named_keys_still_load(tmp_path: Path) -> None:
     legacy = {
         "schema_version": raw["schema_version"],
         "seed": raw["seed"],
-        "mode": raw["mode"],
+        "mode": raw.get("mode", raw.get("dimension", "overworld")),
         "overworld": {**ow, "cave_to_dungeon": cts},
         "player": raw["player"],
         "dungeons": dungeons,
@@ -62,12 +66,11 @@ def test_legacy_dungeon_named_keys_still_load(tmp_path: Path) -> None:
         "saved_entrance_facing": raw["saved_entrance_facing"],
         "moves_since_hunger": raw["moves_since_hunger"],
         "log": raw["log"],
-        # no world_time_ticks — loader defaults to 0
     }
     p_old = tmp_path / "legacy.json"
     p_old.write_text(json.dumps(legacy), encoding="utf-8")
     g_old = load_game(p_old)
-    assert g_old.mode == g_src.mode
+    assert g_old.dimension == g_src.dimension
     assert g_old.seed == g_src.seed
     assert g_src.player.pos.x == g_old.player.pos.x
     assert g_old.overworld.cave_to_mineshaft_id == g_src.overworld.cave_to_mineshaft_id
